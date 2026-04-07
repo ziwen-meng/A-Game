@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blade Spin: Preview & Export</title>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js/dist/plugins/regions.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 20px; }
+        .container { max-width: 850px; margin: 0 auto; background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #333; }
+        #waveform { background: #000; margin: 20px 0; border-radius: 6px; }
+        
+        .panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #252525; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .setting-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        input[type="number"] { background: #121212; border: 1px solid #444; color: #4a90e2; padding: 5px; border-radius: 4px; width: 70px; }
+        
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: 0.2s; }
+        .btn-preview { background: #4a90e2; color: white; }
+        .btn-stop { background: #444; color: white; }
+        .btn-download { background: #27ae60; color: white; margin-left: auto; }
+        button:hover { opacity: 0.9; }
+        
+        .val-display { color: #4a90e2; font-weight: bold; }
+        .status { margin-top: 15px; font-size: 0.85rem; color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚔️ Blade Spin Lab</h2>
+    <p style="font-size: 0.9rem; color: #888;">Select the "Whoosh", test the spin feel, then download the raw snippet for your game.</p>
+    
+    <input type="file" id="audioFile" accept="video/*,audio/*" style="margin-bottom: 20px;">
+    
+    <div id="waveform"></div>
+
+    <div class="panel">
+        <div class="setting-group">
+            <label>Preview Gap (ms): <span id="speedLabel" class="val-display">250</span></label>
+            <input type="range" id="speedSlider" min="50" max="600" value="250">
+            <div style="margin-top:5px">
+                <label>Max Limit:</label>
+                <input type="number" id="maxGapInput" value="600">
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <label>Pitch Variance: <span id="pitchLabel" class="val-display">15</span>%</label>
+            <input type="range" id="pitchSlider" min="0" max="100" value="15">
+            <p style="font-size:0.7rem; color:#666; margin:0;">Adds realism to the preview</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="previewBtn" class="btn-preview">🔄 Preview Spin Loop</button>
+        <button id="stopBtn" class="btn-stop">Stop</button>
+        <button id="downloadBtn" class="btn-download">💾 Download Snippet (.wav)</button>
+    </div>
+    
+    <div id="status" class="status">Waiting for file...</div>
+</div>
+
+<script>
+    let ws, regions, audioCtx, loopInterval;
+
+    const speedSlider = document.getElementById('speedSlider');
+    const speedLabel = document.getElementById('speedLabel');
+    const maxGapInput = document.getElementById('maxGapInput');
+    const pitchSlider = document.getElementById('pitchSlider');
+    const pitchLabel = document.getElementById('pitchLabel');
+    const status = document.getElementById('status');
+
+    // UI Updates
+    speedSlider.oninput = () => speedLabel.innerText = speedSlider.value;
+    pitchSlider.oninput = () => pitchLabel.innerText = pitchSlider.value;
+    maxGapInput.oninput = () => speedSlider.max = maxGapInput.value;
+
+    ws = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#3d3d3d',
+        progressColor: '#4a90e2',
+        cursorColor: '#fff',
+        height: 100,
+        normalize: true
+    });
+
+    regions = ws.registerPlugin(WaveSurfer.Regions.create());
+
+    document.getElementById('audioFile').onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) ws.loadBlob(file);
+    };
+
+    ws.on('ready', () => {
+        regions.clearRegions();
+        regions.addRegion({
+            start: 2.15,
+            end: 2.45,
+            color: 'rgba(74, 144, 226, 0.3)',
+            drag: true,
+            resize: true
+        });
+        status.innerText = "Source loaded. Adjust selection and sliders.";
+    });
+
+    // --- PREVIEW LOGIC ---
+    function playPreviewSlice() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const region = regions.getRegions()[0];
+        const buffer = ws.getDecodedData();
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+
+        const variation = (Math.random() - 0.5) * (pitchSlider.value / 100);
+        source.playbackRate.value = 1 + variation;
+
+        source.connect(audioCtx.destination);
+        source.start(0, region.start, region.end - region.start);
+    }
+
+    document.getElementById('previewBtn').onclick = () => {
+        if (loopInterval) clearInterval(loopInterval);
+        playPreviewSlice();
+        loopInterval = setInterval(playPreviewSlice, speedSlider.value);
+        status.innerText = "Previewing spin loop...";
+    };
+
+    document.getElementById('stopBtn').onclick = () => {
+        clearInterval(loopInterval);
+        status.innerText = "Preview stopped.";
+    };
+
+    // --- DOWNLOAD SNIPPET LOGIC ---
+    document.getElementById('downloadBtn').onclick = () => {
+        const region = regions.getRegions()[0];
+        if (!region) return;
+
+        const originalBuffer = ws.getDecodedData();
+        const sampleRate = originalBuffer.sampleRate;
+        const startSample = Math.floor(region.start * sampleRate);
+        const endSample = Math.floor(region.end * sampleRate);
+        const frameCount = endSample - startSample;
+
+        const newBuffer = new AudioBuffer({
+            numberOfChannels: originalBuffer.numberOfChannels,
+            length: frameCount,
+            sampleRate: sampleRate
+        });
+
+        for (let i = 0; i < originalBuffer.numberOfChannels; i++) {
+            const channelData = originalBuffer.getChannelData(i).slice(startSample, endSample);
+            newBuffer.copyToChannel(channelData, i);
+        }
+
+        const wavBlob = bufferToWave(newBuffer, frameCount);
+        const url = URL.createObjectURL(wavBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `blade_whoosh_snippet.wav`;
+        link.click();
+        status.innerText = "Snippet downloaded successfully!";
+    };
+
+    // WAV Encoder Helper
+    function bufferToWave(abuffer, len) {
+        let numOfChan = abuffer.numberOfChannels,
+            length = len * numOfChan * 2 + 44,
+            buffer = new ArrayBuffer(length),
+            view = new DataView(buffer),
+            channels = [], i, sample, offset = 0, pos = 0;
+
+        const setUint16 = (d) => { view.setUint16(pos, d, true); pos += 2; };
+        const setUint32 = (d) => { view.setUint32(pos, d, true); pos += 4; };
+
+        setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+        setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+        setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
+        setUint16(numOfChan * 2); setUint16(16);
+        setUint32(0x61746164); setUint32(length - pos - 4);
+
+        for(i = 0; i < numOfChan; i++) channels.push(abuffer.getChannelData(i));
+        while(pos < length) {
+            for(i = 0; i < numOfChan; i++) {
+                sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
+                view.setInt16(pos, sample, true);
+                pos += 2;
+            }
+            offset++;
+        }
+        return new Blob([buffer], {type: "audio/wav"});
+    }
+</script>
+
+</body>
+</html>
