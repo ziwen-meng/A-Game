@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blade Master: Power Up Edition</title>
+    <title>Blade Master: Slow Motion Edition</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -17,13 +17,12 @@
         #exp-container { position: absolute; top: 15px; left: 5%; width: 90%; height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; }
         #exp-bar { width: 0%; height: 100%; background: #00f2fe; transition: width 0.1s; }
         #announce { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 50px; font-weight: bold; transform: scale(0); transition: 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); text-shadow: 0 0 20px #000; z-index: 10; }
-        #damage-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; pointer-events: none; }
         #game-over {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: none; flex-direction: column;
             align-items: center; justify-content: center; pointer-events: auto;
         }
-        .retry-btn { padding: 20px 40px; background: #ff4444; color: white; border: none; border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; animation: pulse 1s infinite; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
+        .retry-btn { padding: 20px 40px; background: #ffeb3b; color: #333; border: none; border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
     </style>
 </head>
@@ -32,15 +31,12 @@
     <div id="ui-layer">
         <div id="exp-container"><div id="exp-bar"></div></div>
         <div id="hp-container">❤️❤️❤️</div>
-        <div id="announce">BOSS APPEARED!</div>
+        <div id="announce">BOSS!</div>
     </div>
 
-    <div id="damage-flash"></div>
-
     <div id="game-over">
-        <h1 style="color:white; font-size: 48px; margin-bottom: 10px;">GAME OVER</h1>
-        <p style="color:#aaa; margin-bottom: 30px;">武器を拾ってリベンジだ！</p>
-        <button class="retry-btn" onclick="location.reload()">DOWNLOAD & RETRY</button>
+        <h1 style="color:white; font-size: 40px;">GAME OVER</h1>
+        <button class="retry-btn" onclick="location.reload()">再挑戦（ストアへ）</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -52,22 +48,20 @@
         const hpDisplay = document.getElementById('hp-container');
         const announce = document.getElementById('announce');
         const gameOverScreen = document.getElementById('game-over');
-        const flash = document.getElementById('damage-flash');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // 武器設定：威力を固有に設定
         const WEAPONS = [
             { name: "伝説のバナナ", emoji: "🍌", power: 100, count: 6, color: "#ffff00" },
-            { name: "魔王のしゃもじ", emoji: "🥄", power: 50, count: 4, color: "#ffffff" },
+            { name: "魔王のしゃもじ", emoji: "🥄", power: 55, count: 4, color: "#ffffff" },
             { name: "電動歯ブラシ", emoji: "🪥", power: 25, count: 8, color: "#00ffff" },
-            { name: "近所のネギ", emoji: "🌱", power: 10, count: 5, color: "#aaffaa" }
+            { name: "近所のネギ", emoji: "🌱", power: 12, count: 5, color: "#aaffaa" }
         ];
 
         let player = { x: canvas.width/2, y: canvas.height/2, hp: 3, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0 };
         let enemies = [];
-        let bubbles = []; // ここを常に1つ以下に制限する
+        let bubbles = [];
         let effects = [];
         let isBossBattle = false;
         let gameActive = true;
@@ -80,11 +74,11 @@
             }
             reset() {
                 const angle = Math.random() * Math.PI * 2;
-                this.x = player.x + Math.cos(angle) * (this.isBoss ? 600 : 400);
-                this.y = player.y + Math.sin(angle) * (this.isBoss ? 600 : 400);
-                this.maxHp = this.isBoss ? 3000 : 120;
+                this.x = player.x + Math.cos(angle) * (this.isBoss ? 600 : 500);
+                this.y = player.y + Math.sin(angle) * (this.isBoss ? 600 : 500);
+                this.maxHp = this.isBoss ? 3500 : 120;
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 130 : 32;
+                this.size = this.isBoss ? 140 : 35;
                 this.emoji = this.isBoss ? "🍮" : "👾";
                 this.vx = 0; this.vy = 0;
             }
@@ -96,26 +90,22 @@
                 const dx = player.x - this.x;
                 const dy = player.y - this.y;
                 const d = Math.sqrt(dx*dx + dy*dy);
-                this.x += (dx/d) * (this.isBoss ? 1.0 : 2.5);
-                this.y += (dy/d) * (this.isBoss ? 1.0 : 2.5);
+                
+                // 接近速度
+                this.x += (dx/d) * (this.isBoss ? 0.9 : 2.2);
+                this.y += (dy/d) * (this.isBoss ? 0.9 : 2.2);
 
-                if (d < this.size + 15 && player.invul <= 0) takeDamage();
+                if (d < this.size + 10 && player.invul <= 0) takeDamage();
 
                 for(let i=0; i<player.weapon.count; i++) {
                     const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                    const wx = player.x + Math.cos(a) * 105;
-                    const wy = player.y + Math.sin(a) * 105;
+                    const wx = player.x + Math.cos(a) * 110;
+                    const wy = player.y + Math.sin(a) * 110;
                     const dHit = Math.sqrt((this.x-wx)**2 + (this.y-wy)**2);
                     
                     if(dHit < this.size + 15) {
                         this.hp -= player.weapon.power;
-                        // ダメージ数字を生成（武器が強いほど大きく、色を変える）
                         addDamageText(this.x, this.y, player.weapon.power, player.weapon.color);
-                        
-                        if(!this.isBoss) {
-                            this.vx = (this.x - player.x) * 0.05;
-                            this.vy = (this.y - player.y) * 0.05;
-                        }
                         if(this.hp <= 0) this.die();
                     }
                 }
@@ -123,10 +113,10 @@
             die() {
                 if(this.isBoss) {
                     isBossBattle = false;
-                    showAnnounce("BOSS KILLED!");
+                    showAnnounce("VICTORY!");
                     setTimeout(() => { for(let i=0;i<8;i++) enemies.push(new Enemy(false)); }, 1000);
                 } else {
-                    player.exp += 20;
+                    player.exp += 25;
                     updateExp();
                 }
                 this.reset();
@@ -135,22 +125,20 @@
                 ctx.font = `${this.size}px Arial`;
                 ctx.fillText(this.emoji, this.x - this.size/2, this.y + this.size/2);
                 ctx.fillStyle = "rgba(0,0,0,0.5)";
-                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60, 5);
-                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff4444";
-                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60 * (this.hp/this.maxHp), 5);
+                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60, 6);
+                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff5252";
+                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60 * (this.hp/this.maxHp), 6);
             }
         }
 
         function addDamageText(x, y, pwr, color) {
-            // ダメージが大きいほどフォントサイズを大きく
-            const fontSize = 16 + (pwr / 5);
             effects.push({ 
-                x: x + (Math.random()-0.5)*40, 
-                y: y - 20, 
+                x: x + (Math.random()-0.5)*50, 
+                y: y, 
                 text: pwr, 
                 color: color, 
-                size: fontSize,
-                life: 1.0 
+                size: 20 + (pwr/4), 
+                life: 1.2 // 少し長めに表示
             });
         }
 
@@ -158,8 +146,6 @@
             player.hp--;
             player.invul = 60;
             hpDisplay.innerText = "❤️".repeat(player.hp);
-            flash.style.opacity = 0.5;
-            setTimeout(() => { flash.style.opacity = 0; }, 150);
             if(player.hp <= 0) { gameActive = false; gameOverScreen.style.display = "flex"; }
         }
 
@@ -169,21 +155,8 @@
                 player.exp = 0;
                 isBossBattle = true;
                 enemies = [new Enemy(true)];
-                showAnnounce("WARNING: BOSS");
+                showAnnounce("BOSS WARNING!");
             }
-        }
-
-        function tryDropWeapon() {
-            // 画面上に既にバブルがある場合はドロップさせない
-            if (bubbles.length > 0) return;
-
-            const nextW = WEAPONS[Math.floor(Math.random() * (WEAPONS.length - 1))]; // 初期ネギ以外
-            bubbles.push({ 
-                x: Math.random() * (canvas.width - 100) + 50, 
-                y: Math.random() * (canvas.height - 100) + 50, 
-                weapon: nextW, 
-                t: 0 
-            });
         }
 
         function showAnnounce(txt) {
@@ -201,55 +174,59 @@
 
             if(player.invul > 0) player.invul--;
 
-            // 10秒に1回ドロップを試みる
-            if(Date.now() - lastDropTime > 10000) {
-                tryDropWeapon();
+            // シングルドロップ管理
+            if(Date.now() - lastDropTime > 10000 && bubbles.length === 0) {
+                bubbles.push({ 
+                    x: Math.random()*(canvas.width-100)+50, 
+                    y: Math.random()*(canvas.height-100)+50, 
+                    weapon: WEAPONS[Math.floor(Math.random()*(WEAPONS.length-1))], 
+                    t: 0 
+                });
                 lastDropTime = Date.now();
             }
 
-            // バブル描画
             bubbles.forEach((b, i) => {
-                b.t += 0.05;
+                b.t += 0.03;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, 40+Math.sin(b.t)*5, 0, Math.PI*2);
-                ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
-                ctx.strokeStyle = "#fff"; ctx.stroke();
+                ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
+                ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
                 ctx.font = "30px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
-                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 60) {
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) {
                     player.weapon = b.weapon;
-                    showAnnounce(b.weapon.name + " GET!");
+                    showAnnounce(b.weapon.name + "!");
                     bubbles.splice(i, 1);
                 }
             });
 
-            player.angle += 0.05;
+            // ★ 武器の回転速度を極限まで低速化 (0.02)
+            player.angle += 0.02; 
+
             enemies.forEach(e => { e.update(); e.draw(); });
 
             // プレイヤー
-            ctx.globalAlpha = (player.invul % 10 > 5) ? 0.3 : 1;
-            ctx.font = "50px Arial";
-            ctx.fillText("😈", player.x-25, player.y+20);
+            ctx.globalAlpha = (player.invul % 10 > 5) ? 0.4 : 1;
+            ctx.font = "55px Arial"; ctx.fillText("😈", player.x-28, player.y+22);
             ctx.globalAlpha = 1;
 
-            // 武器
+            // 武器の描画（はっきり見える！）
             for(let i=0; i<player.weapon.count; i++) {
                 const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                const wx = player.x + Math.cos(a) * 100;
-                const wy = player.y + Math.sin(a) * 100;
+                const wx = player.x + Math.cos(a) * 115;
+                const wy = player.y + Math.sin(a) * 115;
                 ctx.save();
                 ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2);
-                ctx.font = "35px Arial"; ctx.fillText(player.weapon.emoji, -17, 17);
+                ctx.font = "42px Arial"; ctx.fillText(player.weapon.emoji, -20, 20);
                 ctx.restore();
             }
 
-            // ダメージ数字のエフェクト
+            // ダメージ演出
             effects.forEach((e, i) => {
                 ctx.globalAlpha = e.life;
                 ctx.fillStyle = e.color;
                 ctx.font = `bold ${e.size}px Arial`;
                 ctx.fillText(e.text, e.x, e.y);
-                e.y -= 1.5;
-                e.life -= 0.03;
+                e.y -= 0.8;
+                e.life -= 0.02;
                 if(e.life <= 0) effects.splice(i, 1);
             });
             ctx.globalAlpha = 1;
