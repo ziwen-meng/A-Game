@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Sprite Cleaner: Click to Remove</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
+        .card { background: #2a2a2a; padding: 30px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 95%; }
+        
+        .canvas-container { 
+            position: relative; 
+            margin-top: 20px; 
+            cursor: crosshair; 
+            display: inline-block;
+            border: 2px solid #444;
+        }
+
+        canvas { 
+            display: block;
+            /* Checkered background */
+            background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
+            background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .controls { background: #333; padding: 15px; border-radius: 10px; margin: 20px 0; display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .swatch { width: 30px; height: 30px; border: 2px solid white; border-radius: 5px; display: inline-block; vertical-align: middle; }
+        
+        input[type="file"] { margin-bottom: 20px; }
+        button { padding: 10px 25px; font-size: 16px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        #download { background: #4ade80; color: #1a1a1a; display: none; }
+        #download:hover { background: #22c55e; transform: translateY(-2px); }
+        
+        .tip { color: #aaa; font-size: 14px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Advanced Sprite Cleaner</h1>
+        <p class="tip">Step 1: Upload image | Step 2: Click on the grey background to select color | Step 3: Download</p>
+        
+        <input type="file" id="upload" accept="image/*">
+        
+        <div class="controls">
+            <div>
+                Target Color: <div id="colorSwatch" class="swatch" style="background: transparent;"></div>
+            </div>
+            <div>
+                <label for="fuzz">Range (Fuzziness): </label>
+                <input type="range" id="fuzz" min="1" max="100" value="20">
+                <span id="fuzzVal">20</span>
+            </div>
+            <button id="download">Download PNG</button>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const upload = document.getElementById('upload');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const fuzzInput = document.getElementById('fuzz');
+        const fuzzVal = document.getElementById('fuzzVal');
+        const colorSwatch = document.getElementById('colorSwatch');
+        const downloadBtn = document.getElementById('download');
+        
+        let originalImg = null;
+        let selectedColor = null; // {r, g, b}
+
+        upload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImg = new Image();
+                originalImg.onload = () => {
+                    canvas.width = originalImg.width;
+                    canvas.height = originalImg.height;
+                    ctx.drawImage(originalImg, 0, 0);
+                    downloadBtn.style.display = 'inline-block';
+                };
+                originalImg.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Click to select color
+        canvas.addEventListener('mousedown', (e) => {
+            if (!originalImg) return;
+            
+            // Get actual click coordinates on the image
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            // Sample the pixel
+            const pixel = ctx.getImageData(x, y, 1, 1).data;
+            selectedColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+            
+            // Update UI
+            colorSwatch.style.background = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+            processImage();
+        });
+
+        fuzzInput.addEventListener('input', () => {
+            fuzzVal.innerText = fuzzInput.value;
+            if (selectedColor) processImage();
+        });
+
+        function processImage() {
+            if (!originalImg || !selectedColor) return;
+
+            // Reset canvas to original before processing
+            ctx.drawImage(originalImg, 0, 0);
+
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+            const fuzz = parseInt(fuzzInput.value);
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i+1];
+                const b = data[i+2];
+                
+                // Calculate "distance" between current pixel and selected color
+                const diff = Math.sqrt(
+                    Math.pow(r - selectedColor.r, 2) +
+                    Math.pow(g - selectedColor.g, 2) +
+                    Math.pow(b - selectedColor.b, 2)
+                );
+
+                // If within the "fuzz" range, make it transparent
+                if (diff < fuzz) {
+                    data[i+3] = 0; 
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'enemy_clean.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>
