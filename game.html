@@ -3,49 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ブレイドマスター：タクティカル・ビュー</title>
+    <title>三国ドライブ</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; user-select: none; touch-action: none; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #1a0000; font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif; user-select: none; touch-action: none; }
         canvas { display: block; }
         
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; color: white; z-index: 5; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
         
-        /* 経験値バーのみ上部に残す */
-        #exp-container { position: absolute; top: 10px; left: 5%; width: 90%; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; }
-        #exp-bar { width: 0%; height: 100%; background: #00f2fe; transition: width 0.2s; }
+        #exp-container { position: absolute; top: 15px; left: 5%; width: 90%; height: 10px; background: rgba(0,0,0,0.6); border: 1px solid #d4af37; border-radius: 2px; overflow: hidden; box-shadow: 0 0 15px #8e0000; }
+        #exp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #fff700, #d4af37); transition: width 0.3s; }
 
-        #stage-display { position: absolute; top: 30px; left: 5%; font-size: 18px; color: #ffeb3b; text-shadow: 2px 2px #000; }
-        #announce { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 50px; font-weight: bold; transform: scale(0); transition: 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); text-shadow: 0 0 20px #000; z-index: 10; }
+        #stage-display { position: absolute; top: 35px; left: 5%; font-size: 18px; color: #ffd700; text-shadow: 2px 2px #000; letter-spacing: 2px; font-weight: bold; }
         
-        #start-screen, #result-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; text-align: center; }
-        #start-screen { background: rgba(0,0,0,0.85); }
-        #result-screen { background: rgba(0,0,0,0.9); display: none; pointer-events: auto; }
+        #start-screen, #result-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: #ffd700; text-align: center; }
+        
+        #start-screen { background: radial-gradient(circle, #3d0000 0%, #000000 100%); }
+        
+        /* New styling for Result Screen to handle BG images */
+        #result-screen { 
+            background-size: cover; 
+            background-position: center;
+        }
 
-        .title-text { font-size: 55px; font-weight: bold; margin-bottom: 10px; background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff); -webkit-background-clip: text; color: transparent; animation: rainbow_anim 3s linear infinite; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
-        .btn { padding: 22px 50px; background: linear-gradient(#ffeb3b, #ff9800); color: #d32f2f; border: 5px solid #fff; border-radius: 50px; font-size: 26px; font-weight: bold; cursor: pointer; animation: bounce_anim 1.5s infinite; box-shadow: 0 10px 25px rgba(255,152,0,0.6); margin-top: 30px; }
+        .title-text { font-size: 70px; margin-bottom: 15px; background: linear-gradient(to bottom, #fff700, #d4af37, #8a6d3b); -webkit-background-clip: text; color: transparent; filter: drop-shadow(0 0 10px rgba(212,175,55,0.5)); font-weight: 900; }
         
-        @keyframes rainbow_anim { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
-        @keyframes bounce_anim { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-15px);} }
+        /* Container for the victory image */
+        #win-img-container img {
+            max-width: 80%;
+            height: auto;
+            margin-bottom: 30px;
+            filter: drop-shadow(0 0 20px rgba(212,175,55,0.8));
+        }
+
+        .btn { padding: 18px 60px; background: #600000; color: #ffd700; border: 2px solid #d4af37; font-size: 24px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-family: serif; z-index: 101; }
+        .btn:hover { background: #d4af37; color: #3d0000; }
     </style>
 </head>
 <body>
 
     <div id="start-screen">
-        <h1 class="title-text">ブレイドマスター</h1>
-        <p style="font-size: 18px; line-height: 1.6;">足元のHPゲージに注目！<br>❤️を拾えば回復できるぞ。</p>
-        <button class="btn" onclick="startGame()">ゲーム開始</button>
+        <h1 class="title-text">三国ドライブ</h1>
+        <p style="color: #d4af37; font-size: 18px;">極彩色の戦場を駆け抜け、<br>霊薬（❤️）を拾いて生き残れ。</p>
+        <button class="btn" onclick="startGame()">合戦開始</button>
     </div>
 
     <div id="ui-layer">
         <div id="exp-container"><div id="exp-bar"></div></div>
-        <div id="stage-display">ステージ 1 / 5</div>
-        <div id="announce">スタート！</div>
+        <div id="stage-display">第一幕</div>
     </div>
 
-    <div id="result-screen">
-        <div id="res-main-text" class="title-text">完全勝利！</div>
-        <div id="res-sub-text" style="font-size: 20px; color: #fff;">あなたが真のマスターです。</div>
-        <button class="btn" onclick="location.reload()">もう一度プレイ</button>
+    <div id="result-screen" style="display:none;">
+        <div id="res-content-area">
+            <div id="res-main-text" class="title-text"></div>
+            <div id="win-img-container"></div>
+        </div>
+        <button class="btn" onclick="location.reload()">再戦を望む</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -55,10 +67,10 @@
         const ctx = canvas.getContext('2d');
         const expBar = document.getElementById('exp-bar');
         const stageDisplay = document.getElementById('stage-display');
-        const announce = document.getElementById('announce');
-        const resultScreen = document.getElementById('result-screen');
-        const resMain = document.getElementById('res-main-text');
         const startScreen = document.getElementById('start-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const resMainText = document.getElementById('res-main-text');
+        const winImgContainer = document.getElementById('win-img-container');
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -67,10 +79,9 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- リソース ---
-        const AUDIO_PATH = 'blade_whoosh.wav';
-        const hitSound = new Audio(AUDIO_PATH);
-        
+        // --- リソース読み込み ---
+        const playerImg = new Image(); playerImg.src = 'player.png';
+        const enemySprite = new Image(); enemySprite.src = 'enemy.png';
         const bgImages = [];
         for(let i=1; i<=5; i++) {
             const img = new Image();
@@ -78,160 +89,119 @@
             bgImages.push(img);
         }
 
-        const enemySprite = new Image(); enemySprite.src = 'enemy.png';
-        const playerImg = new Image(); playerImg.src = 'player.png';
-        let enemyW = 0, enemyH = 0, playerW = 0, playerH = 0;
         const SPRITE_COLS = 3, SPRITE_ROWS = 3, INNER_PAD = 10;
+        let pW = 0, pH = 0, eW = 0, eH = 0;
+        playerImg.onload = () => { pW = playerImg.width / SPRITE_COLS; pH = playerImg.height / SPRITE_ROWS; };
+        enemySprite.onload = () => { eW = enemySprite.width / SPRITE_COLS; eH = enemySprite.height / SPRITE_ROWS; };
 
-        enemySprite.onload = () => { enemyW = enemySprite.width / SPRITE_COLS; enemyH = enemySprite.height / SPRITE_ROWS; };
-        playerImg.onload = () => { playerW = playerImg.width / SPRITE_COLS; playerH = playerImg.height / SPRITE_ROWS; };
-
-        let lastSoundTime = 0;
-        function playHitSFX() {
-            const now = Date.now();
-            if (now - lastSoundTime > 60) {
-                const sound = new Audio(AUDIO_PATH);
-                sound.volume = 0.25;
-                sound.play().catch(() => {});
-                lastSoundTime = now;
-            }
-        }
-
-        // --- ゲーム定数・状態 ---
         const WEAPONS = [
-            { id: 'banana', emoji: "🍌", power: 100, count: 6, color: "#ffff00" },
-            { id: 'spoon', emoji: "🥄", power: 60, count: 4, color: "#ffffff" },
-            { id: 'brush', emoji: "🪥", power: 30, count: 8, color: "#00ffff" },
-            { id: 'onion', emoji: "🌱", power: 20, count: 5, color: "#aaffaa" }
+            { id: 'banana', emoji: "🪭", power: 120, count: 6, color: "#ffd700" },
+            { id: 'spoon', emoji: "🗡️", power: 75, count: 5, color: "#ffffff" },
+            { id: 'brush', emoji: "🧧", power: 45, count: 8, color: "#ff5252" },
+            { id: 'onion', emoji: "🥢", power: 30, count: 4, color: "#aaffaa" }
         ];
 
         let currentStage = 1;
-        let player = { x: canvas.width/2, y: canvas.height/2, hp: 5, maxHp: 5, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0, animFrame: 0, dir: 1, size: 90 };
+        const STAGE_NAMES = ["第一幕", "第二幕", "第三幕", "第四幕", "終幕：呂布との死闘"];
+        let player = { x: 0, y: 0, hp: 6, maxHp: 6, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
         let enemies = [], bubbles = [], effects = [], confetti = [];
-        let gameActive = false, lastDropTime = Date.now(), lastHealTime = Date.now(), hitStopFrames = 0, screenShake = 0, frameCount = 0;
+        let gameActive = false, frameCount = 0, lastDropTime = Date.now(), lastHealTime = Date.now();
+        let hitStopFrames = 0, screenShake = 0;
         let hitTriggers = new Map();
 
+        let trans = { active: false, chars: [], x: 0, targetX: 0, state: 'in', timer: 0 };
+
         class Enemy {
-            constructor(isBoss = false, id) { 
-                this.id = id; this.isBoss = isBoss; this.reset(true); 
-                this.animFrame = Math.floor(Math.random() * 8); 
+            constructor(isBoss = false, id) {
+                this.id = id; this.isBoss = isBoss; this.animFrame = Math.floor(Math.random() * 8);
+                this.spawn(true);
             }
-            reset(far = true) {
-                const a = Math.random() * Math.PI * 2;
-                const dist = far ? 700 : (500 + Math.random() * 200);
-                this.x = player.x + Math.cos(a) * dist; 
-                this.y = player.y + Math.sin(a) * dist;
-                this.maxHp = this.isBoss ? 1500 : (20 + currentStage * 15);
+            spawn(far = true) {
+                const angle = Math.random() * Math.PI * 2;
+                const d = far ? 750 : (500 + Math.random() * 200);
+                this.x = player.x + Math.cos(angle) * d;
+                this.y = player.y + Math.sin(angle) * d;
+                this.maxHp = this.isBoss ? 2000 : 35 + (currentStage * 20);
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 240 : 85; 
+                this.size = this.isBoss ? 250 : 85;
                 this.flash = 0;
                 hitTriggers.set(this.id, new Set());
             }
             update() {
                 if(!gameActive) return;
-                const dx = player.x - this.x; const dy = player.y - this.y; const d = Math.sqrt(dx*dx + dy*dy);
-                const s = this.isBoss ? 0.8 : (1.2 + currentStage * 0.18);
-                this.dir = dx > 0 ? 1 : -1; 
-                this.x += (dx/d) * s; this.y += (dy/d) * s;
+                const dx = player.x - this.x, dy = player.y - this.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const speed = this.isBoss ? 1.0 : 1.4 + (currentStage * 0.18);
+                this.x += (dx/dist) * speed;
+                this.y += (dy/dist) * speed;
+                this.dir = dx > 0 ? 1 : -1;
 
-                if (d < this.size * 0.3 && player.invul <= 0) takeDamage();
+                if(dist < this.size*0.35 && player.invul <= 0) takeDamage();
 
                 const activeT = hitTriggers.get(this.id);
                 for(let i=0; i<player.weapon.count; i++) {
                     const wa = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                    const wx = player.x + Math.cos(wa) * 115, wy = player.y + Math.sin(wa) * 115;
-                    if(Math.sqrt((this.x-wx)**2 + (this.y-wy)**2) < this.size * 0.4 + 25) {
+                    const wx = player.x + Math.cos(wa) * 125, wy = player.y + Math.sin(wa) * 125;
+                    if(Math.sqrt((this.x-wx)**2 + (this.y-wy)**2) < this.size*0.4 + 25) {
                         if(!activeT.has(i)) {
                             this.hp -= player.weapon.power;
-                            playHitSFX();
-                            effects.push({ x: this.x, y: this.y, text: player.weapon.power, color: player.weapon.color, size: (this.isBoss?50:30), life: 1.0 });
-                            activeT.add(i); 
-                            if(this.isBoss) { hitStopFrames = 5; screenShake = 12; this.flash = 5; } else { hitStopFrames = 2; }
-                            if(this.hp <= 0) { this.die(); return; }
+                            this.flash = 5;
+                            effects.push({ x: this.x, y: this.y, text: player.weapon.power, color: "#ffd700", life: 1.0 });
+                            activeT.add(i);
+                            if(this.isBoss) { hitStopFrames = 5; screenShake = 15; } else { hitStopFrames = 2; }
+                            if(this.hp <= 0) this.die();
                         }
                     } else { activeT.delete(i); }
                 }
             }
             draw() {
-                if (!enemyW) return;
+                if (!eW) return;
                 if (frameCount % 7 === 0) this.animFrame = (this.animFrame + 1) % 8;
-                const sx = (this.animFrame % SPRITE_COLS) * enemyW + INNER_PAD, sy = Math.floor(this.animFrame / SPRITE_COLS) * enemyH + INNER_PAD;
-                const sw = enemyW - (INNER_PAD * 2), sh = enemyH - (INNER_PAD * 2);
-                ctx.save(); ctx.translate(this.x, this.y); if(this.dir === -1) ctx.scale(-1, 1); 
-                if(this.flash > 0) { ctx.filter = "sepia(1) saturate(10) hue-rotate(-50deg) brightness(1.2)"; this.flash--; }
-                ctx.drawImage(enemySprite, sx, sy, sw, sh, -this.size/2, -this.size/2, this.size, this.size); ctx.restore();
-                
-                // 敵のHPバー (頭上)
-                ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(this.x - 25, this.y - this.size/2 - 10, 50, 4);
-                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff5252"; ctx.fillRect(this.x - 25, this.y - this.size/2 - 10, 50 * (this.hp/this.maxHp), 4);
+                const sx = (this.animFrame % SPRITE_COLS) * eW + INNER_PAD, sy = Math.floor(this.animFrame / SPRITE_COLS) * eH + INNER_PAD;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if(this.dir === -1) ctx.scale(-1, 1);
+                if(this.flash > 0) { ctx.filter = "brightness(2) sepia(1)"; this.flash--; }
+                ctx.drawImage(enemySprite, sx, sy, eW-20, eH-20, -this.size/2, -this.size/2, this.size, this.size);
+                ctx.restore();
+                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(this.x - 30, this.y - this.size/2 - 12, 60, 5);
+                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#d4af37"; ctx.fillRect(this.x - 30, this.y - this.size/2 - 12, 60 * (this.hp/this.maxHp), 5);
             }
             die() {
-                if(this.isBoss) { showResult(true); } 
-                else { player.exp += 12; updateExp(); this.reset(false); }
+                if(this.isBoss) endGame(true);
+                else { player.exp += 15; this.spawn(false); updateExp(); }
             }
         }
 
         function startGame() {
-            startScreen.style.display = "none";
-            hitSound.play().then(() => hitSound.pause()).catch(() => {});
+            startScreen.style.display = 'none';
+            player.x = canvas.width/2; player.y = canvas.height/2;
             gameActive = true;
-            spawnEnemies();
+            for(let i=0; i<12; i++) enemies.push(new Enemy(false, i));
             loop();
         }
 
-        function drawPlayer() {
-            if (!playerW) return;
-            if (frameCount % 8 === 0) player.animFrame = (player.animFrame + 1) % 8;
-            const sx = (player.animFrame % SPRITE_COLS) * playerW + INNER_PAD, sy = Math.floor(player.animFrame / SPRITE_COLS) * playerH + INNER_PAD;
-            const sw = playerW - (INNER_PAD * 2), sh = playerH - (INNER_PAD * 2);
-
-            ctx.save(); ctx.translate(player.x, player.y);
-            if(player.dir === -1) ctx.scale(-1, 1);
-            if (player.invul > 0 && Math.floor(frameCount / 5) % 2 === 0) ctx.globalAlpha = 0.5;
-            ctx.drawImage(playerImg, sx, sy, sw, sh, -player.size/2, -player.size/2, player.size, player.size);
-            ctx.restore();
-
-            // --- プレイヤーのHPバー (足元) ---
-            const barW = 60;
-            const barH = 6;
-            const barY = player.y + player.size/2 + 5;
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(player.x - barW/2, barY, barW, barH);
-            ctx.fillStyle = "#00ff00"; // プレイヤーは緑色で見やすく
-            ctx.fillRect(player.x - barW/2, barY, barW * (player.hp/player.maxHp), barH);
-        }
-
-        function showResult(win) {
-            gameActive = false;
-            if(!win) { resMain.innerText = "ゲームオーバー"; resMain.style.color = "red"; }
-            resultScreen.style.display = "flex";
-            for(let i=0; i<80; i++) confetti.push({ x: Math.random()*canvas.width, y: -20, size: Math.random()*10+5, color: `hsl(${Math.random()*360}, 100%, 70%)`, vy: Math.random()*5+2, vx: (Math.random()-0.5)*3, angle: Math.random()*360, vAngle: Math.random()*10-5 });
-        }
-
         function takeDamage() {
-            player.hp--; player.invul = 60;
-            screenShake = 15;
-            if(player.hp <= 0) showResult(false);
+            player.hp--; player.invul = 65;
+            screenShake = 18;
+            if(player.hp <= 0) endGame(false);
         }
 
-        function updateExp() { 
-            expBar.style.width = player.exp + "%"; 
-            if(player.exp >= 100) { player.exp = 0; nextStage(); } 
+        function updateExp() {
+            expBar.style.width = player.exp + "%";
+            if(player.exp >= 100) { player.exp = 0; nextStage(); }
         }
 
         function nextStage() {
             if(currentStage < 5) {
                 currentStage++;
-                stageDisplay.innerText = `ステージ ${currentStage} / 5`;
-                announce.innerText = currentStage === 5 ? "警告：ボス出現！" : `ステージ ${currentStage}`;
-                announce.style.transform = "scale(1)"; setTimeout(() => announce.style.transform = "scale(0)", 1500);
+                stageDisplay.innerText = STAGE_NAMES[currentStage-1];
+                trans.chars = `【 ${STAGE_NAMES[currentStage-1]} 】 いざ参らん`.split('');
+                trans.x = canvas.width + 100;
+                trans.targetX = canvas.width / 2 - (trans.chars.length * 30);
+                trans.state = 'in'; trans.timer = 110; trans.active = true;
                 if(currentStage === 5) enemies = [new Enemy(true, 0)];
             }
-        }
-
-        function spawnEnemies() {
-            enemies = [];
-            for(let i=0; i<12; i++) enemies.push(new Enemy(false, i));
         }
 
         function loop() {
@@ -244,65 +214,106 @@
                 });
                 requestAnimationFrame(loop); return;
             }
-
             if (hitStopFrames > 0) { hitStopFrames--; requestAnimationFrame(loop); return; }
-            
             frameCount++;
             ctx.save();
             if (screenShake > 0) { ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); screenShake *= 0.9; }
-            
-            // 背景描画
             const curBG = bgImages[currentStage-1];
-            if(curBG && curBG.complete) ctx.drawImage(curBG, 0, 0, canvas.width, canvas.height);
-            else { ctx.fillStyle = "#222"; ctx.fillRect(0,0, canvas.width, canvas.height); }
-
-            // 黒フィルター
-            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            if(player.invul > 0) player.invul--;
-
-            // アイテム出現
+            if(curBG && curBG.complete) {
+                ctx.drawImage(curBG, 0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+            } else {
+                ctx.fillStyle = "#1a0000"; ctx.fillRect(0,0,canvas.width,canvas.height);
+            }
             const now = Date.now();
-            if(now - lastDropTime > 8000 && bubbles.filter(b => b.type === 'weapon').length === 0) {
+            if(now - lastDropTime > 8500 && bubbles.filter(b => b.type === 'weapon').length === 0) {
                 bubbles.push({ x: Math.random()*(canvas.width-100)+50, y: Math.random()*(canvas.height-100)+50, content: WEAPONS[Math.floor(Math.random()*(WEAPONS.length-1))], type: 'weapon', t: 0 });
                 lastDropTime = now;
             }
-            if(now - lastHealTime > 10000 && player.hp < player.maxHp && bubbles.filter(b => b.type === 'heal').length === 0) {
+            if(now - lastHealTime > 11000 && player.hp < player.maxHp && bubbles.filter(b => b.type === 'heal').length === 0) {
                 bubbles.push({ x: Math.random()*(canvas.width-100)+50, y: Math.random()*(canvas.height-100)+50, content: {emoji: "❤️"}, type: 'heal', t: 0 });
                 lastHealTime = now;
             }
-
             bubbles.forEach((b, i) => {
-                b.t += 0.03; ctx.beginPath(); ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
-                ctx.fillStyle = b.type === 'heal' ? "rgba(255,100,100,0.4)" : "rgba(255,255,255,0.3)"; ctx.fill(); 
-                ctx.font = "35px Arial"; ctx.fillText(b.content.emoji, b.x-15, b.y+10);
-                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
-                    if(b.type === 'weapon') player.weapon = b.content; 
-                    else if(b.type === 'heal') { player.hp = Math.min(player.hp + 1, player.maxHp); }
-                    bubbles.splice(i, 1); 
-                }
+                b.t += 0.03; 
+                ctx.beginPath(); ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
+                ctx.fillStyle = b.type === 'heal' ? "rgba(255,100,100,0.4)" : "rgba(212,175,55,0.4)"; ctx.fill(); 
+                ctx.strokeStyle = "#d4af37"; ctx.lineWidth = 2; ctx.stroke();
+                ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText(b.content.emoji, b.x, b.y+12);
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { if(b.type === 'weapon') player.weapon = b.content; else player.hp = Math.min(player.hp + 1, player.maxHp); bubbles.splice(i, 1); }
             });
-
-            player.angle += 0.04; 
-            enemies.forEach(e => { e.update(); e.draw(); });
-            drawPlayer();
-            
+            if(player.invul > 0) player.invul--;
+            if(pW) {
+                if (frameCount % 8 === 0) player.animFrame = (player.animFrame + 1) % 8;
+                const sx = (player.animFrame % SPRITE_COLS) * pW + INNER_PAD, sy = Math.floor(player.animFrame / SPRITE_COLS) * pH + INNER_PAD;
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                if(player.dir === -1) ctx.scale(-1, 1);
+                if(player.invul % 4 < 2) ctx.drawImage(playerImg, sx, sy, pW-20, pH-20, -player.size/2, -player.size/2, player.size, player.size);
+                ctx.restore();
+            }
+            player.angle += 0.055;
             for(let i=0; i<player.weapon.count; i++) {
                 const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                const wx = player.x + Math.cos(a) * 115, wy = player.y + Math.sin(a) * 115;
-                ctx.save(); ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2);
-                ctx.font = "42px Arial"; ctx.fillText(player.weapon.emoji, -20, 20); ctx.restore();
+                const wx = player.x + Math.cos(a)*130; const wy = player.y + Math.sin(a)*130;
+                ctx.save();
+                ctx.font = "bold 50px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.strokeStyle = "rgba(0,0,0,0.9)"; ctx.lineWidth = 6; ctx.strokeText(player.weapon.emoji, wx, wy);
+                ctx.fillText(player.weapon.emoji, wx, wy); ctx.restore();
             }
-            
-            effects.forEach((e, i) => { ctx.globalAlpha = e.life; ctx.fillStyle = e.color; ctx.font = `bold ${e.size}px Arial`; ctx.fillText(e.text, e.x, e.y); e.y -= 1.5; e.life -= 0.03; if(e.life <= 0) effects.splice(i, 1); });
-            ctx.restore(); 
+            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(player.x - 30, player.y + 55, 60, 8);
+            ctx.fillStyle = "#00ff00"; ctx.fillRect(player.x - 30, player.y + 55, 60 * (player.hp/player.maxHp), 8);
+            enemies.forEach(e => { e.update(); e.draw(); });
+            if(trans.active) {
+                if(trans.state === 'in') { trans.x += (trans.targetX - trans.x) * 0.08; if(Math.abs(trans.x - trans.targetX) < 1) trans.state = 'hold'; }
+                else if(trans.state === 'hold') { trans.timer--; if(trans.timer <= 0) trans.state = 'out'; }
+                else { trans.x -= 18; if(trans.x < -1200) trans.active = false; }
+                ctx.font = "bold 55px serif"; ctx.textAlign = "left";
+                trans.chars.forEach((c, i) => {
+                    const cx = trans.x + i * 58; const cy = canvas.height/2;
+                    ctx.strokeStyle = "#4a0000"; ctx.lineWidth = 12; ctx.strokeText(c, cx, cy);
+                    ctx.fillStyle = "#ffd700"; ctx.fillText(c, cx, cy);
+                });
+            }
+            effects.forEach((e, i) => {
+                ctx.globalAlpha = e.life; ctx.fillStyle = e.color || "#ffd700";
+                ctx.font = "bold 32px serif"; ctx.fillText(e.text, e.x, e.y);
+                e.y -= 1.2; e.life -= 0.02; if(e.life <= 0) effects.splice(i, 1);
+            });
+            ctx.restore();
             requestAnimationFrame(loop);
         }
 
+        function endGame(win) {
+            gameActive = false;
+            
+            // Clear previous states
+            resMainText.innerText = "";
+            winImgContainer.innerHTML = "";
+
+            if(win) {
+                // Set Win Background
+                resultScreen.style.backgroundImage = "url('last_bg.png')";
+                // Add Win Title Image
+                winImgContainer.innerHTML = '<img src="win_title.png" alt="天下統一">';
+                
+                // Confetti for victory
+                for(let i=0; i<80; i++) confetti.push({ x: Math.random()*canvas.width, y: -20, size: Math.random()*10+5, color: `hsl(${Math.random()*360}, 100%, 70%)`, vy: Math.random()*5+2, vx: (Math.random()-0.5)*3, angle: Math.random()*360, vAngle: Math.random()*10-5 });
+            } else {
+                // Set Default Lose Background
+                resultScreen.style.background = "radial-gradient(circle, #3d0000 0%, #000000 100%)";
+                resMainText.innerText = "無念"; 
+                resMainText.style.color = "#8e0000";
+                resMainText.style.background = "none";
+                resMainText.style.webkitBackgroundClip = "initial";
+            }
+            
+            resultScreen.style.display = 'flex';
+        }
+
         const handleInput = (ex, ey) => { if(gameActive){ player.dir = ex > player.x ? 1 : -1; player.x = ex; player.y = ey; } };
-        window.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY));
-        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
+        window.addEventListener('touchmove', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
     </script>
 </body>
 </html>
