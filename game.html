@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blade Master: Boss Containment Update</title>
+    <title>Blade Master: Giant Boss Edition</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -43,10 +43,10 @@
         canvas.height = window.innerHeight;
 
         const WEAPONS = [
-            { name: "伝説のバナナ", emoji: "🍌", power: 40, count: 6, effect: "slip" },
-            { name: "魔王のしゃもじ", emoji: "🥄", power: 25, count: 4, effect: "push" },
-            { name: "電動歯ブラシ", emoji: "🪥", power: 15, count: 10, effect: "none" },
-            { name: "近所のネギ", emoji: "🌱", power: 10, count: 5, effect: "none" }
+            { name: "伝説のバナナ", emoji: "🍌", power: 40, count: 6 },
+            { name: "魔王のしゃもじ", emoji: "🥄", power: 25, count: 4 },
+            { name: "電動歯ブラシ", emoji: "🪥", power: 15, count: 10 },
+            { name: "近所のネギ", emoji: "🌱", power: 10, count: 5 }
         ];
 
         let player = { x: canvas.width/2, y: canvas.height/2, exp: 0, weapon: WEAPONS[3], angle: 0 };
@@ -66,35 +66,35 @@
                 const dist = this.isBoss ? 500 : 400;
                 this.x = player.x + Math.cos(angle) * dist;
                 this.y = player.y + Math.sin(angle) * dist;
-                this.maxHp = this.isBoss ? 1500 : 100;
+                this.maxHp = this.isBoss ? 2000 : 100; // ボスはより頑丈に
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 120 : 30;
+                this.size = this.isBoss ? 150 : 35;
                 this.emoji = this.isBoss ? "🍮" : "👾";
                 this.vx = 0; this.vy = 0;
                 this.invul = 0;
             }
             update() {
-                // ノックバック適用
+                // ノックバック適用（雑魚敵のみ）
                 this.x += this.vx;
                 this.y += this.vy;
                 this.vx *= 0.85;
                 this.vy *= 0.85;
 
-                // --- 境界判定の追加 (画面外に逃がさない) ---
+                // 境界判定
                 const margin = this.size / 2;
-                if (this.x < margin) { this.x = margin; this.vx *= -1; }
-                if (this.x > canvas.width - margin) { this.x = canvas.width - margin; this.vx *= -1; }
-                if (this.y < margin) { this.y = margin; this.vy *= -1; }
-                if (this.y > canvas.height - margin) { this.y = canvas.height - margin; this.vy *= -1; }
+                if (this.x < margin) { this.x = margin; if(!this.isBoss) this.vx *= -1; }
+                if (this.x > canvas.width - margin) { this.x = canvas.width - margin; if(!this.isBoss) this.vx *= -1; }
+                if (this.y < margin) { this.y = margin; if(!this.isBoss) this.vy *= -1; }
+                if (this.y > canvas.height - margin) { this.y = canvas.height - margin; if(!this.isBoss) this.vy *= -1; }
 
-                // プレイヤー追跡
+                // 追跡移動（ボスはノックバックに邪魔されず着実に近づく）
                 if (this.invul <= 0) {
                     const dx = player.x - this.x;
                     const dy = player.y - this.y;
                     const d = Math.sqrt(dx*dx + dy*dy);
                     if (d > 5) {
-                        this.x += (dx/d) * (this.isBoss ? 1.0 : 2.2);
-                        this.y += (dy/d) * (this.isBoss ? 1.0 : 2.2);
+                        this.x += (dx/d) * (this.isBoss ? 1.0 : 2.5);
+                        this.y += (dy/d) * (this.isBoss ? 1.0 : 2.5);
                     }
                 } else {
                     this.invul--;
@@ -103,24 +103,28 @@
                 // ヒット判定
                 for(let i=0; i<player.weapon.count; i++) {
                     const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                    const wx = player.x + Math.cos(a) * 105;
-                    const wy = player.y + Math.sin(a) * 105;
+                    const wx = player.x + Math.cos(a) * 110;
+                    const wy = player.y + Math.sin(a) * 110;
                     const dist = Math.sqrt((this.x-wx)**2 + (this.y-wy)**2);
                     
-                    if(dist < this.size + 15 && this.invul <= 0) this.hit();
+                    if(dist < this.size + 10 && this.invul <= 0) this.hit();
                 }
             }
             hit() {
                 this.hp -= player.weapon.power;
                 this.invul = 4;
                 
-                // ノックバック強度 (ボスは重いので控えめに)
-                const force = this.isBoss ? 6 : 15;
-                const angle = Math.atan2(this.y - player.y, this.x - player.x);
-                this.vx = Math.cos(angle) * force;
-                this.vy = Math.sin(angle) * force;
+                // ボス以外はノックバック、ボスは動かない
+                if (!this.isBoss) {
+                    const angle = Math.atan2(this.y - player.y, this.x - player.x);
+                    this.vx = Math.cos(angle) * 15;
+                    this.vy = Math.sin(angle) * 15;
+                }
                 
-                addEffect(this.x, this.y, `-${player.weapon.power}`, this.isBoss ? "#ff0" : "#fff");
+                // エフェクト演出
+                addEffect(this.x + (Math.random()-0.5)*40, this.y + (Math.random()-0.5)*40, 
+                          this.isBoss ? "💢" : `-${player.weapon.power}`, 
+                          this.isBoss ? "#ffeb3b" : "#fff");
 
                 if(this.hp <= 0) {
                     if(this.isBoss) {
@@ -128,30 +132,34 @@
                         showAnnounce("BOSS DEFEATED!");
                         isBossBattle = false;
                         stage++;
-                        stageText.innerText = `STAGE ${stage}: 深淵のリーマン`;
+                        stageText.innerText = `STAGE ${stage}: 深淵のサラリーマン`;
                     }
-                    player.exp += this.isBoss ? 0 : 20;
+                    player.exp += this.isBoss ? 0 : 25;
                     checkLevelUp();
                     this.reset();
                 }
             }
             draw() {
+                ctx.save();
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(this.emoji, this.x, this.y);
+                // ボスがダメージを喰らった時に少し震える演出
+                const shakeX = this.isBoss && this.invul > 0 ? (Math.random()-0.5)*10 : 0;
+                ctx.fillText(this.emoji, this.x + shakeX, this.y);
                 
                 // HP Bar
-                const barW = this.size * 1.2;
+                const barW = this.size * 1.1;
                 ctx.fillStyle = "rgba(0,0,0,0.6)";
-                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 10, barW, 6);
+                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 15, barW, 8);
                 ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff5252";
-                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 10, barW * (this.hp/this.maxHp), 6);
+                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 15, barW * (this.hp/this.maxHp), 8);
+                ctx.restore();
             }
         }
 
         function addEffect(x, y, text, color) { 
-            effects.push({ x, y: y - 20, text, color, life: 1.0 }); 
+            effects.push({ x, y, text, color, life: 1.0 }); 
         }
 
         function checkLevelUp() {
@@ -171,7 +179,7 @@
         function spawnMassiveBubbles(x, y) {
             for(let i=0; i<6; i++) {
                 const w = WEAPONS[Math.floor(Math.random()*WEAPONS.length)];
-                bubbles.push({ x: x + (Math.random()-0.5)*150, y: y + (Math.random()-0.5)*150, weapon: w, t: Math.random()*5 });
+                bubbles.push({ x: x + (Math.random()-0.5)*180, y: y + (Math.random()-0.5)*180, weapon: w, t: Math.random()*5 });
             }
             for(let i=0; i<8; i++) enemies.push(new Enemy(false));
         }
@@ -189,46 +197,49 @@
             ctx.fillStyle = "#5d9e3f";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // バブル取得
+            // バブル描画
             bubbles.forEach((b, i) => {
                 b.t += 0.05;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, 40 + Math.sin(b.t)*5, 0, Math.PI*2);
+                ctx.arc(b.x, b.y, 42 + Math.sin(b.t)*5, 0, Math.PI*2);
                 ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
                 ctx.strokeStyle = "#fff"; ctx.stroke();
                 ctx.font = "30px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
-                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 60) {
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) {
                     player.weapon = b.weapon;
                     showAnnounce(b.weapon.name + "!");
                     bubbles.splice(i, 1);
                 }
             });
 
-            player.angle += 0.15;
+            // 武器の回転（0.05まで低速化して視認性アップ）
+            player.angle += 0.05; 
+            
             enemies.forEach(e => { e.update(); e.draw(); });
             
-            // プレイヤー描画
-            ctx.font = "50px Arial";
+            // プレイヤー
+            ctx.font = "55px Arial";
             ctx.textAlign = "center";
-            ctx.fillText("😈", player.x, player.y + 15);
+            ctx.fillText("😈", player.x, player.y + 18);
 
             // 武器回転
             for(let i=0; i<player.weapon.count; i++) {
                 const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                const wx = player.x + Math.cos(a) * 100;
-                const wy = player.y + Math.sin(a) * 100;
+                const wx = player.x + Math.cos(a) * 110;
+                const wy = player.y + Math.sin(a) * 110;
                 ctx.save();
                 ctx.translate(wx, wy); 
                 ctx.rotate(a + Math.PI/2);
-                ctx.font = "35px Arial";
+                ctx.font = "40px Arial";
                 ctx.fillText(player.weapon.emoji, 0, 0);
                 ctx.restore();
             }
 
+            // エフェクト文字
             effects.forEach((e, i) => {
-                ctx.globalAlpha = e.life; ctx.fillStyle = e.color; ctx.font = "bold 22px Arial";
+                ctx.globalAlpha = e.life; ctx.fillStyle = e.color; ctx.font = "bold 24px Arial";
                 ctx.fillText(e.text, e.x, e.y);
-                e.y -= 1.2; e.life -= 0.03;
+                e.y -= 1.0; e.life -= 0.03;
                 if(e.life <= 0) effects.splice(i, 1);
             });
             ctx.globalAlpha = 1;
@@ -237,7 +248,6 @@
         }
 
         const move = (e) => {
-            const rect = canvas.getBoundingClientRect();
             const x = e.touches ? e.touches[0].clientX : e.clientX;
             const y = e.touches ? e.touches[0].clientY : e.clientY;
             player.x = x;
