@@ -3,274 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blade Master - Playable Ad</title>
+    <title>Blade Master: Auto Progression</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #7ab356; /* 草原の色 */
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #5d9e3f;
             font-family: 'Arial Black', sans-serif;
-            user-select: none;
-            touch-action: none;
+            user-select: none; touch-action: none;
         }
-        canvas {
-            display: block;
+        canvas { display: block; }
+
+        /* UI Elements */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; color: white;
         }
-        #ui-overlay {
-            position: absolute;
-            top: 20px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        
+        /* 経験値ゲージ（上部固定） */
+        #exp-container {
+            position: absolute; top: 10px; left: 5%; width: 90%; height: 12px;
+            background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden;
         }
-        .cta-button {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 40px;
-            background: linear-gradient(to bottom, #ffcc00, #ff9900);
-            border: 4px solid #fff;
-            border-radius: 50px;
-            color: #fff;
-            font-size: 24px;
-            font-weight: bold;
-            display: none;
-            cursor: pointer;
-            animation: pulse 1s infinite;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        #exp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00f2fe, #4facfe); transition: width 0.2s; }
+
+        /* ステージ表示 */
+        #stage-info {
+            position: absolute; top: 30px; left: 0; width: 100%; text-align: center;
+            font-size: 18px; letter-spacing: 2px; text-shadow: 2px 2px #000;
         }
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            50% { transform: translateX(-50%) scale(1.1); }
-            100% { transform: translateX(-50%) scale(1); }
+
+        /* 画面中央のアナウンス */
+        #announce {
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            font-size: 48px; font-weight: bold; transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49);
+            text-shadow: 0 0 20px rgba(255,255,255,0.8);
         }
-        #tutorial {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 20px;
-            text-align: center;
-            background: rgba(0,0,0,0.4);
-            padding: 10px 20px;
-            border-radius: 20px;
+
+        /* 邪魔にならないCTAボタン（下部固定） */
+        .download-footer {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 300px; height: 50px;
+            background: linear-gradient(#ff9800, #f44336);
+            border-radius: 25px; border: 3px solid #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; pointer-events: auto; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
+
+        /* 画面フラッシュ用 */
+        #flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="ui-overlay">
-        <h1 id="score-display">⚔️ ENEMY: 20</h1>
+    <div id="ui-layer">
+        <div id="exp-container"><div id="exp-bar"></div></div>
+        <div id="stage-info">STAGE 1: GRASSLAND</div>
+        <div id="announce">LEVEL UP!</div>
+        <div class="download-footer" onclick="window.open('https://example.com', '_blank')">🚀 INSTALL FREE</div>
     </div>
-
-    <div id="tutorial">👆 Drag to Move & Slash!</div>
-
-    <button id="cta" class="cta-button" onclick="location.reload()">DOWNLOAD NOW</button>
+    <div id="flash"></div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const ctaBtn = document.getElementById('cta');
-        const scoreDisplay = document.getElementById('score-display');
-        const tutorial = document.getElementById('tutorial');
+        const expBar = document.getElementById('exp-bar');
+        const announce = document.getElementById('announce');
+        const stageText = document.getElementById('stage-info');
+        const flash = document.getElementById('flash');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let gameActive = true;
-        let score = 20;
-        let particles = [];
-        let damageTexts = [];
-        let shakeTime = 0;
+        // 武器データ
+        const WEAPONS = [
+            { name: "バナナ", emoji: "🍌", color: "#ffff00", power: 100, effect: "slip" },
+            { name: "しゃもじ", emoji: "🥄", color: "#fff", power: 40, effect: "push" },
+            { name: "歯ブラシ", emoji: "🪥", color: "#0ff", power: 20, effect: "bubble" },
+            { name: "ネギ", emoji: "🌱", color: "#aff", power: 15, effect: "none" }
+        ];
 
-        // Player object
-        const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 25,
-            targetX: canvas.width / 2,
-            targetY: canvas.height / 2,
-            swordAngle: 0,
-            swords: 12 // 円状の剣の数
-        };
+        // ゲーム状態
+        let player = { x: canvas.width/2, y: canvas.height/2, exp: 0, level: 1, weapon: WEAPONS[3], swordCount: 4, angle: 0 };
+        let stage = 1;
+        let enemies = [];
+        let bubbles = [];
+        let effects = [];
+        let lastDropTime = Date.now();
+        let bgColor = "#5d9e3f";
 
-        // Enemy class
         class Enemy {
-            constructor() {
-                this.reset();
-            }
+            constructor() { this.reset(); }
             reset() {
-                const side = Math.floor(Math.random() * 4);
-                if(side === 0) { this.x = Math.random() * canvas.width; this.y = -50; }
-                else if(side === 1) { this.x = canvas.width + 50; this.y = Math.random() * canvas.height; }
-                else if(side === 2) { this.x = Math.random() * canvas.width; this.y = canvas.height + 50; }
-                else { this.x = -50; this.y = Math.random() * canvas.height; }
-                
-                this.hp = 100;
-                this.speed = 1.5 + Math.random();
-                this.size = 20;
-                this.isDead = false;
-                this.emoji = ['👾', '👹', '👻', '🧟'][Math.floor(Math.random() * 4)];
+                const angle = Math.random() * Math.PI * 2;
+                this.x = player.x + Math.cos(angle) * (canvas.width/2 + 100);
+                this.y = player.y + Math.sin(angle) * (canvas.height/2 + 100);
+                this.hp = 50 + (stage * 20);
+                this.isSlipped = false;
+                this.vx = 0; this.vy = 0;
+                this.emoji = stage === 1 ? '👾' : stage === 2 ? '💀' : '🐉';
             }
             update() {
+                if (this.isSlipped) {
+                    this.x += this.vx; this.y += this.vy;
+                    if (this.x < -200 || this.x > canvas.width + 200 || this.y < -200 || this.y > canvas.height + 200) this.reset();
+                    return;
+                }
                 const dx = player.x - this.x;
                 const dy = player.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                this.x += (dx / dist) * this.speed;
-                this.y += (dy / dist) * this.speed;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                this.x += (dx/dist) * (1.5 + stage * 0.5);
+                this.y += (dy/dist) * (1.5 + stage * 0.5);
 
-                // Collision with swords
-                const swordDist = 80; // 剣の回転半径
-                if (dist < swordDist + 20) {
-                    this.takeDamage();
+                for(let i=0; i<player.swordCount; i++) {
+                    const wAngle = player.angle + (i * Math.PI * 2 / player.swordCount);
+                    const wx = player.x + Math.cos(wAngle) * 90;
+                    const wy = player.y + Math.sin(wAngle) * 90;
+                    if(Math.sqrt((this.x-wx)**2 + (this.y-wy)**2) < 40) this.hit();
                 }
             }
-            takeDamage() {
-                this.hp -= 5;
-                if(this.hp <= 0 && !this.isDead) {
-                    this.isDead = true;
-                    createExplosion(this.x, this.y);
-                    score--;
-                    shakeTime = 10;
-                    if(score <= 0) winGame();
+            hit() {
+                if (player.weapon.effect === "slip") {
+                    this.isSlipped = true;
+                    this.vx = (this.x - player.x) * 0.25;
+                    this.vy = (this.y - player.y) * 0.25;
+                    addEffect(this.x, this.y, "ズコーッ！", "#ff0");
+                } else {
+                    player.exp += 5;
+                    addEffect(this.x, this.y, "+EXP", "#0ff");
+                    this.reset();
+                    checkLevelUp();
                 }
-                damageTexts.push({x: this.x, y: this.y, val: 20, life: 30});
-            }
-            draw() {
-                ctx.font = '30px serif';
-                ctx.fillText(this.emoji, this.x - 15, this.y + 10);
-                // HP Bar
-                ctx.fillStyle = 'red';
-                ctx.fillRect(this.x - 15, this.y - 25, 30, 4);
-                ctx.fillStyle = '#00ff00';
-                ctx.fillRect(this.x - 15, this.y - 25, (this.hp/100) * 30, 4);
             }
         }
 
-        const enemies = Array.from({length: 20}, () => new Enemy());
+        function addEffect(x, y, text, color) { effects.push({ x, y, text, color, life: 1.0 }); }
 
-        function createExplosion(x, y) {
-            for(let i=0; i<10; i++) {
-                particles.push({
-                    x, y, 
-                    vx: (Math.random()-0.5)*10, 
-                    vy: (Math.random()-0.5)*10, 
-                    life: 1, 
-                    color: '#fff'
-                });
+        function checkLevelUp() {
+            if (player.exp >= 100) {
+                player.exp = 0;
+                player.level++;
+                player.swordCount++;
+                showAnnounce("LEVEL UP! ⚔️+1");
+                if (player.level % 3 === 0) nextStage();
             }
+            expBar.style.width = player.exp + "%";
         }
 
-        function update() {
-            if(!gameActive) return;
-
-            // Player movement
-            player.x += (player.targetX - player.x) * 0.1;
-            player.y += (player.targetY - player.y) * 0.1;
-            player.swordAngle += 0.15;
-
-            enemies.forEach(en => {
-                if(!en.isDead) en.update();
-            });
-
-            // Particles & Damage Text
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                if(p.life <= 0) particles.splice(i, 1);
-            });
-            damageTexts.forEach((t, i) => {
-                t.y -= 1; t.life--;
-                if(t.life <= 0) damageTexts.splice(i, 1);
-            });
-
-            scoreDisplay.innerText = `⚔️ ENEMIES LEFT: ${Math.max(0, score)}`;
+        function nextStage() {
+            stage++;
+            flash.style.opacity = 1;
+            setTimeout(() => { flash.style.opacity = 0; }, 300);
+            bgColor = stage === 2 ? "#4a4a4a" : "#7b1fa2";
+            stageText.innerText = `STAGE ${stage}: ${stage === 2 ? 'DARK DUNGEON' : 'HELL GATE'}`;
+            showAnnounce("NEXT STAGE!");
+            enemies.forEach(e => e.reset());
         }
 
-        function draw() {
-            // Shake effect
-            ctx.save();
-            if(shakeTime > 0) {
-                ctx.translate(Math.random()*5-2.5, Math.random()*5-2.5);
-                shakeTime--;
-            }
+        function showAnnounce(txt) {
+            announce.innerText = txt;
+            announce.style.transform = "scale(1)";
+            setTimeout(() => { announce.style.transform = "scale(0)"; }, 1500);
+        }
 
-            // Background
-            ctx.fillStyle = '#7ab356';
-            ctx.fillRect(0,0, canvas.width, canvas.height);
+        function spawnBubble() {
+            const w = WEAPONS[Math.floor(Math.random() * WEAPONS.length)];
+            bubbles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, weapon: w, t: 0 });
+        }
+
+        // Init
+        for(let i=0; i<12; i++) enemies.push(new Enemy());
+
+        function loop() {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // バブル処理
+            if(Date.now() - lastDropTime > 10000) { spawnBubble(); lastDropTime = Date.now(); }
+            bubbles.forEach((b, i) => {
+                b.t += 0.05;
+                const pulse = Math.sin(b.t) * 5;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 40+pulse, 0, Math.PI*2);
+                ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fill();
+                ctx.strokeStyle = "#fff"; ctx.stroke();
+                ctx.font = "30px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 60) {
+                    player.weapon = b.weapon;
+                    showAnnounce(b.weapon.name + " GET!");
+                    bubbles.splice(i, 1);
+                }
+            });
+
+            // 敵・プレイヤー
+            player.angle += 0.15;
+            enemies.forEach(e => { e.update(); e.draw(); });
             
-            // Draw Enemies
-            enemies.forEach(en => { if(!en.isDead) en.draw(); });
+            ctx.font = "50px Arial";
+            ctx.fillText("😈", player.x-25, player.y+20);
 
-            // Draw Player (The Purple Knight)
-            ctx.font = '50px serif';
-            ctx.fillText('😈', player.x - 25, player.y + 15);
-            
-            // Draw Swords (Circular Aura)
-            for(let i=0; i < player.swords; i++) {
-                const angle = player.swordAngle + (i * Math.PI * 2 / player.swords);
-                const sx = player.x + Math.cos(angle) * 80;
-                const sy = player.y + Math.sin(angle) * 80;
-                
+            // 武器回転
+            for(let i=0; i<player.swordCount; i++) {
+                const a = player.angle + (i * Math.PI * 2 / player.swordCount);
+                const wx = player.x + Math.cos(a) * 95;
+                const wy = player.y + Math.sin(a) * 95;
                 ctx.save();
-                ctx.translate(sx, sy);
-                ctx.rotate(angle + Math.PI/2);
-                // 剣の描画
-                ctx.fillStyle = '#e0e0e0'; // 刃
-                ctx.fillRect(-4, -25, 8, 35);
-                ctx.fillStyle = '#ffd700'; // 柄
-                ctx.fillRect(-8, 5, 16, 4);
-                ctx.fillRect(-2, 5, 4, 10);
+                ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2);
+                ctx.font = "35px Arial"; ctx.fillText(player.weapon.emoji, -17, 17);
                 ctx.restore();
             }
 
-            // Damage Numbers
-            ctx.font = 'bold 20px Arial';
-            damageTexts.forEach(t => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${t.life/30})`;
-                ctx.fillText(t.val, t.x, t.y);
+            // エフェクト
+            effects.forEach((e, i) => {
+                ctx.globalAlpha = e.life;
+                ctx.fillStyle = e.color;
+                ctx.font = "bold 20px Arial";
+                ctx.fillText(e.text, e.x, e.y);
+                e.y -= 1.5; e.life -= 0.03;
+                if(e.life <= 0) effects.splice(i, 1);
             });
+            ctx.globalAlpha = 1;
 
-            // Particles
-            particles.forEach(p => {
-                ctx.fillStyle = `rgba(255, 255, 0, ${p.life})`;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
-                ctx.fill();
-            });
-
-            ctx.restore();
-            requestAnimationFrame(() => { update(); draw(); });
+            requestAnimationFrame(loop);
         }
 
-        function winGame() {
-            gameActive = false;
-            tutorial.style.display = 'none';
-            scoreDisplay.innerHTML = "✨ LEVEL COMPLETE! ✨";
-            ctaBtn.style.display = 'block';
-        }
-
-        // Input Handling
-        const handleMove = (e) => {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            player.targetX = clientX;
-            player.targetY = clientY;
-            tutorial.style.opacity = 0;
+        Enemy.prototype.draw = function() {
+            ctx.font = "30px Arial";
+            ctx.fillText(this.emoji, this.x-15, this.y+10);
         };
 
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', handleMove);
-        window.addEventListener('mousedown', handleMove);
+        // 入力
+        const move = (e) => {
+            player.x = e.touches ? e.touches[0].clientX : e.clientX;
+            player.y = e.touches ? e.touches[0].clientY : e.clientY;
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchmove', move);
 
-        // Start
-        draw();
+        loop();
     </script>
 </body>
 </html>
