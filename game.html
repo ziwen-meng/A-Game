@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blade Master: Giant Boss Edition</title>
+    <title>Blade Master: Power Up Edition</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -13,21 +13,34 @@
         }
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; color: white; }
-        #exp-container { position: absolute; top: 10px; left: 5%; width: 90%; height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; }
-        #exp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00f2fe, #4facfe); transition: width 0.1s; }
-        #stage-info { position: absolute; top: 30px; left: 0; width: 100%; text-align: center; font-size: 18px; text-shadow: 2px 2px #000; }
-        #announce { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 50px; font-weight: bold; transform: scale(0); transition: 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); text-shadow: 0 0 20px #fff; z-index: 10; }
-        .download-footer { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 280px; height: 55px; background: linear-gradient(#ffeb3b, #ff9800); border-radius: 30px; border: 4px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #d32f2f; pointer-events: auto; cursor: pointer; font-weight: bold; animation: bounce 2s infinite; }
-        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} }
+        #hp-container { position: absolute; top: 40px; left: 20px; font-size: 24px; letter-spacing: 5px; }
+        #exp-container { position: absolute; top: 15px; left: 5%; width: 90%; height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; }
+        #exp-bar { width: 0%; height: 100%; background: #00f2fe; transition: width 0.1s; }
+        #announce { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 50px; font-weight: bold; transform: scale(0); transition: 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); text-shadow: 0 0 20px #000; z-index: 10; }
+        #damage-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; pointer-events: none; }
+        #game-over {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none; flex-direction: column;
+            align-items: center; justify-content: center; pointer-events: auto;
+        }
+        .retry-btn { padding: 20px 40px; background: #ff4444; color: white; border: none; border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; animation: pulse 1s infinite; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
         <div id="exp-container"><div id="exp-bar"></div></div>
-        <div id="stage-info">STAGE 1: プリンの森</div>
+        <div id="hp-container">❤️❤️❤️</div>
         <div id="announce">BOSS APPEARED!</div>
-        <div class="download-footer" onclick="window.open('https://example.com', '_blank')">🍮 今すぐ無料で遊ぶ</div>
+    </div>
+
+    <div id="damage-flash"></div>
+
+    <div id="game-over">
+        <h1 style="color:white; font-size: 48px; margin-bottom: 10px;">GAME OVER</h1>
+        <p style="color:#aaa; margin-bottom: 30px;">武器を拾ってリベンジだ！</p>
+        <button class="retry-btn" onclick="location.reload()">DOWNLOAD & RETRY</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -36,25 +49,29 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const expBar = document.getElementById('exp-bar');
+        const hpDisplay = document.getElementById('hp-container');
         const announce = document.getElementById('announce');
-        const stageText = document.getElementById('stage-info');
+        const gameOverScreen = document.getElementById('game-over');
+        const flash = document.getElementById('damage-flash');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // 武器設定：威力を固有に設定
         const WEAPONS = [
-            { name: "伝説のバナナ", emoji: "🍌", power: 40, count: 6 },
-            { name: "魔王のしゃもじ", emoji: "🥄", power: 25, count: 4 },
-            { name: "電動歯ブラシ", emoji: "🪥", power: 15, count: 10 },
-            { name: "近所のネギ", emoji: "🌱", power: 10, count: 5 }
+            { name: "伝説のバナナ", emoji: "🍌", power: 100, count: 6, color: "#ffff00" },
+            { name: "魔王のしゃもじ", emoji: "🥄", power: 50, count: 4, color: "#ffffff" },
+            { name: "電動歯ブラシ", emoji: "🪥", power: 25, count: 8, color: "#00ffff" },
+            { name: "近所のネギ", emoji: "🌱", power: 10, count: 5, color: "#aaffaa" }
         ];
 
-        let player = { x: canvas.width/2, y: canvas.height/2, exp: 0, weapon: WEAPONS[3], angle: 0 };
+        let player = { x: canvas.width/2, y: canvas.height/2, hp: 3, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0 };
         let enemies = [];
-        let bubbles = [];
+        let bubbles = []; // ここを常に1つ以下に制限する
         let effects = [];
-        let stage = 1;
         let isBossBattle = false;
+        let gameActive = true;
+        let lastDropTime = Date.now();
 
         class Enemy {
             constructor(isBoss = false) {
@@ -63,125 +80,110 @@
             }
             reset() {
                 const angle = Math.random() * Math.PI * 2;
-                const dist = this.isBoss ? 500 : 400;
-                this.x = player.x + Math.cos(angle) * dist;
-                this.y = player.y + Math.sin(angle) * dist;
-                this.maxHp = this.isBoss ? 2000 : 100; // ボスはより頑丈に
+                this.x = player.x + Math.cos(angle) * (this.isBoss ? 600 : 400);
+                this.y = player.y + Math.sin(angle) * (this.isBoss ? 600 : 400);
+                this.maxHp = this.isBoss ? 3000 : 120;
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 150 : 35;
+                this.size = this.isBoss ? 130 : 32;
                 this.emoji = this.isBoss ? "🍮" : "👾";
                 this.vx = 0; this.vy = 0;
-                this.invul = 0;
             }
             update() {
-                // ノックバック適用（雑魚敵のみ）
-                this.x += this.vx;
-                this.y += this.vy;
-                this.vx *= 0.85;
-                this.vy *= 0.85;
+                if(!gameActive) return;
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.8; this.vy *= 0.8;
 
-                // 境界判定
-                const margin = this.size / 2;
-                if (this.x < margin) { this.x = margin; if(!this.isBoss) this.vx *= -1; }
-                if (this.x > canvas.width - margin) { this.x = canvas.width - margin; if(!this.isBoss) this.vx *= -1; }
-                if (this.y < margin) { this.y = margin; if(!this.isBoss) this.vy *= -1; }
-                if (this.y > canvas.height - margin) { this.y = canvas.height - margin; if(!this.isBoss) this.vy *= -1; }
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const d = Math.sqrt(dx*dx + dy*dy);
+                this.x += (dx/d) * (this.isBoss ? 1.0 : 2.5);
+                this.y += (dy/d) * (this.isBoss ? 1.0 : 2.5);
 
-                // 追跡移動（ボスはノックバックに邪魔されず着実に近づく）
-                if (this.invul <= 0) {
-                    const dx = player.x - this.x;
-                    const dy = player.y - this.y;
-                    const d = Math.sqrt(dx*dx + dy*dy);
-                    if (d > 5) {
-                        this.x += (dx/d) * (this.isBoss ? 1.0 : 2.5);
-                        this.y += (dy/d) * (this.isBoss ? 1.0 : 2.5);
-                    }
-                } else {
-                    this.invul--;
-                }
+                if (d < this.size + 15 && player.invul <= 0) takeDamage();
 
-                // ヒット判定
                 for(let i=0; i<player.weapon.count; i++) {
                     const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                    const wx = player.x + Math.cos(a) * 110;
-                    const wy = player.y + Math.sin(a) * 110;
-                    const dist = Math.sqrt((this.x-wx)**2 + (this.y-wy)**2);
+                    const wx = player.x + Math.cos(a) * 105;
+                    const wy = player.y + Math.sin(a) * 105;
+                    const dHit = Math.sqrt((this.x-wx)**2 + (this.y-wy)**2);
                     
-                    if(dist < this.size + 10 && this.invul <= 0) this.hit();
+                    if(dHit < this.size + 15) {
+                        this.hp -= player.weapon.power;
+                        // ダメージ数字を生成（武器が強いほど大きく、色を変える）
+                        addDamageText(this.x, this.y, player.weapon.power, player.weapon.color);
+                        
+                        if(!this.isBoss) {
+                            this.vx = (this.x - player.x) * 0.05;
+                            this.vy = (this.y - player.y) * 0.05;
+                        }
+                        if(this.hp <= 0) this.die();
+                    }
                 }
             }
-            hit() {
-                this.hp -= player.weapon.power;
-                this.invul = 4;
-                
-                // ボス以外はノックバック、ボスは動かない
-                if (!this.isBoss) {
-                    const angle = Math.atan2(this.y - player.y, this.x - player.x);
-                    this.vx = Math.cos(angle) * 15;
-                    this.vy = Math.sin(angle) * 15;
+            die() {
+                if(this.isBoss) {
+                    isBossBattle = false;
+                    showAnnounce("BOSS KILLED!");
+                    setTimeout(() => { for(let i=0;i<8;i++) enemies.push(new Enemy(false)); }, 1000);
+                } else {
+                    player.exp += 20;
+                    updateExp();
                 }
-                
-                // エフェクト演出
-                addEffect(this.x + (Math.random()-0.5)*40, this.y + (Math.random()-0.5)*40, 
-                          this.isBoss ? "💢" : `-${player.weapon.power}`, 
-                          this.isBoss ? "#ffeb3b" : "#fff");
-
-                if(this.hp <= 0) {
-                    if(this.isBoss) {
-                        spawnMassiveBubbles(this.x, this.y);
-                        showAnnounce("BOSS DEFEATED!");
-                        isBossBattle = false;
-                        stage++;
-                        stageText.innerText = `STAGE ${stage}: 深淵のサラリーマン`;
-                    }
-                    player.exp += this.isBoss ? 0 : 25;
-                    checkLevelUp();
-                    this.reset();
-                }
+                this.reset();
             }
             draw() {
-                ctx.save();
                 ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                // ボスがダメージを喰らった時に少し震える演出
-                const shakeX = this.isBoss && this.invul > 0 ? (Math.random()-0.5)*10 : 0;
-                ctx.fillText(this.emoji, this.x + shakeX, this.y);
-                
-                // HP Bar
-                const barW = this.size * 1.1;
-                ctx.fillStyle = "rgba(0,0,0,0.6)";
-                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 15, barW, 8);
-                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff5252";
-                ctx.fillRect(this.x - barW/2, this.y - this.size/1.2 - 15, barW * (this.hp/this.maxHp), 8);
-                ctx.restore();
+                ctx.fillText(this.emoji, this.x - this.size/2, this.y + this.size/2);
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60, 5);
+                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff4444";
+                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60 * (this.hp/this.maxHp), 5);
             }
         }
 
-        function addEffect(x, y, text, color) { 
-            effects.push({ x, y, text, color, life: 1.0 }); 
+        function addDamageText(x, y, pwr, color) {
+            // ダメージが大きいほどフォントサイズを大きく
+            const fontSize = 16 + (pwr / 5);
+            effects.push({ 
+                x: x + (Math.random()-0.5)*40, 
+                y: y - 20, 
+                text: pwr, 
+                color: color, 
+                size: fontSize,
+                life: 1.0 
+            });
         }
 
-        function checkLevelUp() {
+        function takeDamage() {
+            player.hp--;
+            player.invul = 60;
+            hpDisplay.innerText = "❤️".repeat(player.hp);
+            flash.style.opacity = 0.5;
+            setTimeout(() => { flash.style.opacity = 0; }, 150);
+            if(player.hp <= 0) { gameActive = false; gameOverScreen.style.display = "flex"; }
+        }
+
+        function updateExp() {
             expBar.style.width = player.exp + "%";
-            if (player.exp >= 100) {
+            if(player.exp >= 100 && !isBossBattle) {
                 player.exp = 0;
-                if(!isBossBattle) triggerBoss();
+                isBossBattle = true;
+                enemies = [new Enemy(true)];
+                showAnnounce("WARNING: BOSS");
             }
         }
 
-        function triggerBoss() {
-            isBossBattle = true;
-            enemies = [new Enemy(true)];
-            showAnnounce("BOSS APPEARED!");
-        }
+        function tryDropWeapon() {
+            // 画面上に既にバブルがある場合はドロップさせない
+            if (bubbles.length > 0) return;
 
-        function spawnMassiveBubbles(x, y) {
-            for(let i=0; i<6; i++) {
-                const w = WEAPONS[Math.floor(Math.random()*WEAPONS.length)];
-                bubbles.push({ x: x + (Math.random()-0.5)*180, y: y + (Math.random()-0.5)*180, weapon: w, t: Math.random()*5 });
-            }
-            for(let i=0; i<8; i++) enemies.push(new Enemy(false));
+            const nextW = WEAPONS[Math.floor(Math.random() * (WEAPONS.length - 1))]; // 初期ネギ以外
+            bubbles.push({ 
+                x: Math.random() * (canvas.width - 100) + 50, 
+                y: Math.random() * (canvas.height - 100) + 50, 
+                weapon: nextW, 
+                t: 0 
+            });
         }
 
         function showAnnounce(txt) {
@@ -190,56 +192,64 @@
             setTimeout(() => { announce.style.transform = "scale(0)"; }, 2000);
         }
 
-        // Init
         for(let i=0; i<8; i++) enemies.push(new Enemy(false));
 
         function loop() {
+            if(!gameActive) return;
             ctx.fillStyle = "#5d9e3f";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+
+            if(player.invul > 0) player.invul--;
+
+            // 10秒に1回ドロップを試みる
+            if(Date.now() - lastDropTime > 10000) {
+                tryDropWeapon();
+                lastDropTime = Date.now();
+            }
 
             // バブル描画
             bubbles.forEach((b, i) => {
                 b.t += 0.05;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, 42 + Math.sin(b.t)*5, 0, Math.PI*2);
-                ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
+                ctx.arc(b.x, b.y, 40+Math.sin(b.t)*5, 0, Math.PI*2);
+                ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
                 ctx.strokeStyle = "#fff"; ctx.stroke();
                 ctx.font = "30px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
-                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) {
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 60) {
                     player.weapon = b.weapon;
-                    showAnnounce(b.weapon.name + "!");
+                    showAnnounce(b.weapon.name + " GET!");
                     bubbles.splice(i, 1);
                 }
             });
 
-            // 武器の回転（0.05まで低速化して視認性アップ）
-            player.angle += 0.05; 
-            
+            player.angle += 0.05;
             enemies.forEach(e => { e.update(); e.draw(); });
-            
-            // プレイヤー
-            ctx.font = "55px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("😈", player.x, player.y + 18);
 
-            // 武器回転
+            // プレイヤー
+            ctx.globalAlpha = (player.invul % 10 > 5) ? 0.3 : 1;
+            ctx.font = "50px Arial";
+            ctx.fillText("😈", player.x-25, player.y+20);
+            ctx.globalAlpha = 1;
+
+            // 武器
             for(let i=0; i<player.weapon.count; i++) {
                 const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                const wx = player.x + Math.cos(a) * 110;
-                const wy = player.y + Math.sin(a) * 110;
+                const wx = player.x + Math.cos(a) * 100;
+                const wy = player.y + Math.sin(a) * 100;
                 ctx.save();
-                ctx.translate(wx, wy); 
-                ctx.rotate(a + Math.PI/2);
-                ctx.font = "40px Arial";
-                ctx.fillText(player.weapon.emoji, 0, 0);
+                ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2);
+                ctx.font = "35px Arial"; ctx.fillText(player.weapon.emoji, -17, 17);
                 ctx.restore();
             }
 
-            // エフェクト文字
+            // ダメージ数字のエフェクト
             effects.forEach((e, i) => {
-                ctx.globalAlpha = e.life; ctx.fillStyle = e.color; ctx.font = "bold 24px Arial";
+                ctx.globalAlpha = e.life;
+                ctx.fillStyle = e.color;
+                ctx.font = `bold ${e.size}px Arial`;
                 ctx.fillText(e.text, e.x, e.y);
-                e.y -= 1.0; e.life -= 0.03;
+                e.y -= 1.5;
+                e.life -= 0.03;
                 if(e.life <= 0) effects.splice(i, 1);
             });
             ctx.globalAlpha = 1;
@@ -248,10 +258,10 @@
         }
 
         const move = (e) => {
+            if(!gameActive) return;
             const x = e.touches ? e.touches[0].clientX : e.clientX;
             const y = e.touches ? e.touches[0].clientY : e.clientY;
-            player.x = x;
-            player.y = y;
+            player.x = x; player.y = y;
         };
         window.addEventListener('mousemove', move);
         window.addEventListener('touchmove', move);
