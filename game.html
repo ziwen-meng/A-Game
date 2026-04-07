@@ -3,25 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ブレードマスター：サバイバル</title>
+    <title>Blade Master: Easy & Impact Edition</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #5d9e3f; font-family: 'Arial Black', 'Hiragino Kaku Gothic ProN', sans-serif; user-select: none; touch-action: none; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #5d9e3f; font-family: 'Arial Black', sans-serif; user-select: none; touch-action: none; }
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; color: white; }
-        
-        /* プレイヤーHP（ハート） */
         #hp-container { position: absolute; top: 40px; left: 20px; font-size: 24px; letter-spacing: 5px; }
-        
-        /* 経験値ゲージ */
         #exp-container { position: absolute; top: 15px; left: 5%; width: 90%; height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; }
         #exp-bar { width: 0%; height: 100%; background: #00f2fe; transition: width 0.1s; }
-        
-        /* 告知テロップ */
         #announce { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 50px; font-weight: bold; transform: scale(0); transition: 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); text-shadow: 0 0 20px #000; z-index: 10; }
-        
-        /* ゲームオーバー画面 */
         #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; }
-        .retry-btn { padding: 20px 40px; background: #ffeb3b; color: #333; border: none; border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; animation: pulse 1s infinite; box-shadow: 0 0 20px rgba(255,235,59,0.5); }
+        .retry-btn { padding: 20px 40px; background: #ffeb3b; color: #333; border: none; border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
     </style>
 </head>
@@ -34,9 +26,9 @@
     </div>
 
     <div id="game-over">
-        <h1 style="color:white; font-size: 40px; margin-bottom: 10px;">GAME OVER</h1>
-        <p style="color:#ccc; margin-bottom: 30px;">強力な武器を拾ってリベンジだ！</p>
-        <button class="retry-btn" onclick="location.reload()">再挑戦（ストアへ）</button>
+        <h1 style="color:white; font-size: 40px; margin-bottom: 10px;">完全勝利！</h1>
+        <p style="color:#ccc; margin-bottom: 30px;">全ステージをアンロックしよう</p>
+        <button class="retry-btn" onclick="location.reload()">今すぐダウンロード</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -54,9 +46,9 @@
 
         const WEAPONS = [
             { id: 'banana', name: "伝説のバナナの皮", emoji: "🍌", power: 100, count: 6, color: "#ffff00" },
-            { id: 'spoon', name: "魔王のしゃもじ", emoji: "🥄", power: 55, count: 4, color: "#ffffff" },
-            { id: 'brush', name: "超振動ハブラシ", emoji: "🪥", power: 25, count: 8, color: "#00ffff" },
-            { id: 'onion', name: "近所のネギ", emoji: "🌱", power: 12, count: 5, color: "#aaffaa" }
+            { id: 'spoon', name: "魔王のしゃもじ", emoji: "🥄", power: 60, count: 4, color: "#ffffff" },
+            { id: 'brush', name: "超振動ハブラシ", emoji: "🪥", power: 30, count: 8, color: "#00ffff" },
+            { id: 'onion', name: "近所のネギ", emoji: "🌱", power: 20, count: 5, color: "#aaffaa" }
         ];
 
         let player = { x: canvas.width/2, y: canvas.height/2, hp: 3, maxHp: 3, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0 };
@@ -66,8 +58,9 @@
         let isBossBattle = false;
         let gameActive = true;
         let lastDropTime = Date.now();
-
-        // 武器と敵のOnTrigger状態管理用Map
+        
+        let hitStopFrames = 0;
+        let screenShake = 0;
         let hitTriggers = new Map();
 
         class Enemy {
@@ -78,17 +71,19 @@
             }
             reset() {
                 const angle = Math.random() * Math.PI * 2;
-                this.x = player.x + Math.cos(angle) * (this.isBoss ? 600 : 500);
-                this.y = player.y + Math.sin(angle) * (this.isBoss ? 600 : 500);
-                this.maxHp = this.isBoss ? 3500 : 120;
+                this.x = player.x + Math.cos(angle) * (this.isBoss ? 500 : 400);
+                this.y = player.y + Math.sin(angle) * (this.isBoss ? 500 : 400);
+                this.maxHp = this.isBoss ? 1200 : 40; // ボスHPを大幅削減
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 140 : 35;
+                this.size = this.isBoss ? 160 : 35;
                 this.emoji = this.isBoss ? "🍮" : "👾";
                 this.vx = 0; this.vy = 0;
-                hitTriggers.set(this.id, new Set()); // この敵に対するヒット状態を初期化
+                this.flash = 0;
+                hitTriggers.set(this.id, new Set());
             }
             update() {
                 if(!gameActive) return;
+                
                 this.x += this.vx; this.y += this.vy;
                 this.vx *= 0.8; this.vy *= 0.8;
 
@@ -96,14 +91,13 @@
                 const dy = player.y - this.y;
                 const d = Math.sqrt(dx*dx + dy*dy);
                 
-                // 接近速度
-                this.x += (dx/d) * (this.isBoss ? 0.9 : 2.2);
-                this.y += (dy/d) * (this.isBoss ? 0.9 : 2.2);
+                // ボスはゆっくり、雑魚も控えめ
+                const speed = this.isBoss ? 0.7 : 1.3;
+                this.x += (dx/d) * speed;
+                this.y += (dy/d) * speed;
 
-                // プレイヤーへの接触ダメージ（継続判定）
                 if (d < this.size + 10 && player.invul <= 0) takeDamage();
 
-                // --- OnTrigger攻撃判定 ---
                 const activeTriggers = hitTriggers.get(this.id);
                 
                 for(let i=0; i<player.weapon.count; i++) {
@@ -112,14 +106,19 @@
                     const wy = player.y + Math.sin(a) * 115;
                     const dHit = Math.sqrt((this.x-wx)**2 + (this.y-wy)**2);
                     
-                    const isTouching = dHit < this.size + 20;
+                    const isTouching = dHit < this.size + 30; // 判定を広く
 
                     if(isTouching) {
-                        // OnTriggerEnter: 触れた瞬間に1回だけダメージ
                         if(!activeTriggers.has(i)) {
                             this.hp -= player.weapon.power;
-                            addDamageText(this.x, this.y, player.weapon.power, player.weapon.color);
+                            addDamageText(this.x, this.y, player.weapon.power, player.weapon.color, this.isBoss);
                             activeTriggers.add(i); 
+                            
+                            if(this.isBoss) {
+                                hitStopFrames = 8;
+                                screenShake = 20; 
+                                this.flash = 5;
+                            }
                             
                             if(this.hp <= 0) {
                                 this.die();
@@ -127,7 +126,6 @@
                             }
                         }
                     } else {
-                        // OnTriggerExit: 離れたらフラグをリセット（次の回転でまた当たるようにする）
                         activeTriggers.delete(i);
                     }
                 }
@@ -135,33 +133,43 @@
             die() {
                 if(this.isBoss) {
                     isBossBattle = false;
-                    showAnnounce("完全勝利！");
-                    setTimeout(() => { for(let i=0;i<8;i++) enemies.push(new Enemy(false, i)); }, 1000);
+                    gameActive = false;
+                    gameOverScreen.style.display = "flex";
                 } else {
-                    player.exp += 25;
+                    player.exp += 50; // 2体で即ボス
                     updateExp();
                 }
                 this.reset();
             }
             draw() {
+                ctx.save();
+                if(this.flash > 0) { ctx.filter = "brightness(3)"; this.flash--; }
                 ctx.font = `${this.size}px Arial`;
                 ctx.fillText(this.emoji, this.x - this.size/2, this.y + this.size/2);
+                ctx.restore();
+
                 ctx.fillStyle = "rgba(0,0,0,0.5)";
-                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60, 6);
+                ctx.fillRect(this.x - 40, this.y - this.size - 5, 80, 8);
                 ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#ff5252";
-                ctx.fillRect(this.x - 30, this.y - this.size - 5, 60 * (this.hp/this.maxHp), 6);
+                ctx.fillRect(this.x - 40, this.y - this.size - 5, 80 * (this.hp/this.maxHp), 8);
             }
         }
 
-        function addDamageText(x, y, pwr, color) {
-            effects.push({ x: x + (Math.random()-0.5)*50, y: y, text: pwr, color: color, size: 22 + (pwr/4), life: 1.2 });
+        function addDamageText(x, y, pwr, color, isBoss) {
+            const size = isBoss ? 40 + (pwr/2) : 22 + (pwr/4);
+            effects.push({ x: x + (Math.random()-0.5)*80, y: y, text: pwr, color: color, size: size, life: 1.2 });
         }
 
         function takeDamage() {
             player.hp--;
             player.invul = 60;
-            hpDisplay.innerText = "❤️".repeat(player.hp);
-            if(player.hp <= 0) { gameActive = false; gameOverScreen.style.display = "flex"; }
+            hpDisplay.innerText = "❤️".repeat(Math.max(0, player.hp));
+            screenShake = 15;
+            if(player.hp <= 0) { 
+               announce.innerText = "GAMEOVER";
+               announce.style.transform = "scale(1)";
+               setTimeout(() => location.reload(), 1500);
+            }
         }
 
         function updateExp() {
@@ -180,17 +188,37 @@
             setTimeout(() => { announce.style.transform = "scale(0)"; }, 2000);
         }
 
-        for(let i=0; i<8; i++) enemies.push(new Enemy(false, i));
+        for(let i=0; i<4; i++) enemies.push(new Enemy(false, i));
 
         function loop() {
-            if(!gameActive) return;
+            if(!gameActive) {
+                if(gameOverScreen.style.display === "flex") {
+                     // 勝利時の背景描画だけ継続
+                     ctx.fillStyle = "#5d9e3f";
+                     ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                return;
+            }
+
+            if (hitStopFrames > 0) {
+                hitStopFrames--;
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            ctx.save();
+            if (screenShake > 0) {
+                ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+                screenShake *= 0.9;
+            }
+
             ctx.fillStyle = "#5d9e3f";
-            ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillRect(-100, -100, canvas.width+200, canvas.height+200);
 
             if(player.invul > 0) player.invul--;
 
-            // 武器バブルドロップ（画面に1つ制限）
-            if(Date.now() - lastDropTime > 10000 && bubbles.length === 0) {
+            // バブルドロップを早める（開始3秒でドロップ）
+            if(Date.now() - lastDropTime > 3000 && bubbles.length === 0) {
                 bubbles.push({ x: Math.random()*(canvas.width-100)+50, y: Math.random()*(canvas.height-100)+50, weapon: WEAPONS[Math.floor(Math.random()*(WEAPONS.length-1))], t: 0 });
                 lastDropTime = Date.now();
             }
@@ -199,8 +227,8 @@
                 b.t += 0.03;
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
-                ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
-                ctx.font = "30px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
+                ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
+                ctx.font = "35px Arial"; ctx.fillText(b.weapon.emoji, b.x-15, b.y+10);
                 if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) {
                     player.weapon = b.weapon;
                     showAnnounce(b.weapon.name + "！");
@@ -208,10 +236,9 @@
                 }
             });
 
-            player.angle += 0.025; // 武器の回転速度
+            player.angle += 0.025; 
             enemies.forEach(e => { e.update(); e.draw(); });
 
-            // プレイヤーとHPバー
             ctx.globalAlpha = (player.invul % 10 > 5) ? 0.4 : 1;
             ctx.font = "55px Arial"; ctx.fillText("😈", player.x-28, player.y+22);
             ctx.globalAlpha = 1;
@@ -219,10 +246,9 @@
             const pBarW = 60, pBarH = 8;
             ctx.fillStyle = "rgba(0,0,0,0.5)";
             ctx.fillRect(player.x - pBarW/2, player.y - 60, pBarW, pBarH);
-            ctx.fillStyle = player.hp === 1 ? "#ff4444" : "#4ade80";
+            ctx.fillStyle = "#4ade80";
             ctx.fillRect(player.x - pBarW/2, player.y - 60, pBarW * (player.hp / player.maxHp), pBarH);
 
-            // 武器の描画
             for(let i=0; i<player.weapon.count; i++) {
                 const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
                 const wx = player.x + Math.cos(a) * 115;
@@ -233,15 +259,14 @@
                 ctx.restore();
             }
 
-            // ダメージ数字
             effects.forEach((e, i) => {
                 ctx.globalAlpha = e.life; ctx.fillStyle = e.color; ctx.font = `bold ${e.size}px Arial`;
                 ctx.fillText(e.text, e.x, e.y);
-                e.y -= 0.8; e.life -= 0.02;
+                e.y -= 1.0; e.life -= 0.02;
                 if(e.life <= 0) effects.splice(i, 1);
             });
-            ctx.globalAlpha = 1;
 
+            ctx.restore();
             requestAnimationFrame(loop);
         }
 
