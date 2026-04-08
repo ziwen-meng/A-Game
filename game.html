@@ -33,7 +33,7 @@
 
     <div id="start-screen">
         <h1 class="title-text">三国ドライブ</h1>
-        <p style="color: #d4af37; font-size: 18px;">敵軍を殲滅し、新たな武器を拾いて生き残れ。</p>
+        <p style="color: #d4af37; font-size: 18px;">敵軍を殲滅せよ。全滅させねば次へは進めぬ。</p>
         <button class="btn" onclick="startGame()">合戦開始</button>
     </div>
 
@@ -75,25 +75,21 @@
         const playerImg = new Image(); playerImg.src = 'player.png';
         const enemySprite = new Image(); enemySprite.src = 'enemy.png';
         const bossSprite = new Image(); bossSprite.src = 'boss.png';
-        
+        const gatchaBubbleImg = new Image(); gatchaBubbleImg.src = 'gatcha.png';
+
         const bgImages = [];
         for(let i=1; i<=5; i++) {
-            const img = new Image();
-            img.src = `background${i}.png`;
+            const img = new Image(); img.src = `background${i}.png`;
             bgImages.push(img);
         }
-
         const weaponImages = [];
         for(let i=1; i<=5; i++) {
-            const img = new Image();
-            img.src = `weapon${i}.png`;
+            const img = new Image(); img.src = `weapon${i}.png`;
             weaponImages.push(img);
         }
-
         const gatchaImages = [];
         for(let i=1; i<=3; i++) {
-            const img = new Image();
-            img.src = `gatcha${i}.png`;
+            const img = new Image(); img.src = `gatcha${i}.png`;
             gatchaImages.push(img);
         }
 
@@ -114,18 +110,17 @@
 
         let currentStage = 1;
         const STAGE_NAMES = ["第一幕", "第二幕", "第三幕", "第四幕", "終幕：呂布との死闘"];
+        const STAGE_SPAWN_TIMES = [10, 10, 20, 30, 30]; 
         
-        let player = { x: 0, y: 0, hp: 6, maxHp: 6, weapon: WEAPONS[0], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
+        let player = { x: 0, y: 0, hp: 12, maxHp: 12, weapon: WEAPONS[0], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
         let enemies = [], bubbles = [], effects = [], confetti = [];
         let gameActive = false, frameCount = 0, lastHealTime = Date.now();
         let hitStopFrames = 0, screenShake = 0;
         let hitTriggers = new Map();
         let enemyIdCounter = 0;
 
-        let stageData = { totalEnemies: 0, droppedWeapon: false };
+        let stageData = { totalEnemies: 0, killedEnemies: 0, spawnedCount: 0, droppedWeapon: false, stageFrame: 0, spawnInterval: 60, bossSpawned: false };
         let trans = { active: false, chars: [], x: 0, targetX: 0, state: 'in', timer: 0 };
-
-        // --- Gacha Pickup State: 180 frames = 3 seconds ---
         let pickupDisplay = { active: false, imgIdx: 0, gatchaIdx: 0, timer: 0, maxTimer: 180 };
 
         const WEAPON_RADIUS = 100; 
@@ -141,19 +136,9 @@
         }
 
         function playHitSound() {
-            let count = 0;
-            const interval = 250; 
-            const maxRetries = 3; 
-            const playOneShot = () => {
-                if (count < maxRetries) {
-                    const audio = new Audio('blade_whoosh.wav');
-                    audio.volume = 0.5; 
-                    audio.play().catch(e => console.log("Audio play blocked")); 
-                    count++;
-                    if (count < maxRetries) setTimeout(playOneShot, interval);
-                }
-            };
-            playOneShot();
+            const audio = new Audio('blade_whoosh.wav');
+            audio.volume = 0.2; 
+            audio.play().catch(e => {}); 
         }
 
         class Enemy {
@@ -168,9 +153,9 @@
                 const d = 600 + Math.random() * 300;
                 this.x = player.x + Math.cos(angle) * d;
                 this.y = player.y + Math.sin(angle) * d;
-                this.maxHp = this.isBoss ? 2500 : 35 + (currentStage * 25);
+                this.maxHp = this.isBoss ? 8000 : 40 + (currentStage * 30);
                 this.hp = this.maxHp;
-                this.size = this.isBoss ? 250 : 85;
+                this.size = this.isBoss ? 260 : 85;
                 this.flash = 0;
                 hitTriggers.set(this.id, new Set());
             }
@@ -178,7 +163,7 @@
                 if(!gameActive || pickupDisplay.active) return;
                 const dx = player.x - this.x, dy = player.y - this.y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                const speed = this.isBoss ? 1.0 : 1.2 + (currentStage * 0.2);
+                const speed = this.isBoss ? 1.1 : 1.3 + (currentStage * 0.2);
                 this.x += (dx/dist) * speed;
                 this.y += (dy/dist) * speed;
                 this.dir = dx > 0 ? 1 : -1;
@@ -186,10 +171,9 @@
                 if(dist < this.size*0.35 && player.invul <= 0) takeDamage();
 
                 const activeT = hitTriggers.get(this.id);
-                const currentWeaponCount = getWeaponCount();
-
-                for(let i=0; i < currentWeaponCount; i++) {
-                    const wa = player.angle + (i * Math.PI * 2 / currentWeaponCount);
+                const count = getWeaponCount();
+                for(let i=0; i < count; i++) {
+                    const wa = player.angle + (i * Math.PI * 2 / count);
                     const wx = player.x + Math.cos(wa) * WEAPON_RADIUS; 
                     const wy = player.y + Math.sin(wa) * WEAPON_RADIUS;
                     
@@ -208,37 +192,35 @@
             }
             draw() {
                 const sprite = this.isBoss ? bossSprite : enemySprite;
-                const frameW = this.isBoss ? bW : eW;
-                const frameH = this.isBoss ? bH : eH;
-                if (!frameW) return; 
+                const fW = this.isBoss ? bW : eW;
+                const fH = this.isBoss ? bH : eH;
+                if (!fW) return; 
                 if (!pickupDisplay.active && frameCount % 7 === 0) this.animFrame = (this.animFrame + 1) % 8;
-                const sx = (this.animFrame % SPRITE_COLS) * frameW + INNER_PAD;
-                const sy = Math.floor(this.animFrame / SPRITE_COLS) * frameH + INNER_PAD;
+                const sx = (this.animFrame % SPRITE_COLS) * fW + INNER_PAD;
+                const sy = Math.floor(this.animFrame / SPRITE_COLS) * fH + INNER_PAD;
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 if(this.dir === -1) ctx.scale(-1, 1);
                 if(this.flash > 0) { ctx.filter = "brightness(2) sepia(1)"; this.flash--; }
-                ctx.drawImage(sprite, sx, sy, frameW-20, frameH-20, -this.size/2, -this.size/2, this.size, this.size);
+                ctx.drawImage(sprite, sx, sy, fW-20, fH-20, -this.size/2, -this.size/2, this.size, this.size);
                 ctx.restore();
                 ctx.fillStyle = "rgba(0,0,0,0.7)"; 
-                ctx.fillRect(this.x - 30, this.y - this.size/2 - 12, 60, 5);
-                ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#d4af37"; 
-                ctx.fillRect(this.x - 30, this.y - this.size/2 - 12, 60 * (this.hp/this.maxHp), 5);
+                ctx.fillRect(this.x - 40, this.y - this.size/2 - 15, 80, 7);
+                ctx.fillStyle = this.isBoss ? "#ffff00" : "#d4af37"; 
+                ctx.fillRect(this.x - 40, this.y - this.size/2 - 15, 80 * (this.hp/this.maxHp), 7);
             }
             die() {
                 const idx = enemies.indexOf(this);
                 if (idx > -1) enemies.splice(idx, 1);
                 hitTriggers.delete(this.id);
-                updateProgress();
+                stageData.killedEnemies++;
+                updateProgressBar();
+
                 if (currentStage > 1 && !stageData.droppedWeapon) {
-                    if (enemies.length <= stageData.totalEnemies / 2) {
+                    if (stageData.killedEnemies >= stageData.totalEnemies / 2) {
                         dropWeapon(currentStage);
                         stageData.droppedWeapon = true;
                     }
-                }
-                if (enemies.length === 0) {
-                    if (currentStage === 5) endGame(true);
-                    else nextStage();
                 }
             }
         }
@@ -256,33 +238,38 @@
         function startStageWave() {
             enemies = [];
             stageData.droppedWeapon = false;
+            stageData.killedEnemies = 0;
+            stageData.spawnedCount = 0;
+            stageData.stageFrame = 0;
+            stageData.bossSpawned = false;
             weaponTrails = Array(6).fill().map(() => []);
-            let numSmallEnemies = [0, 10, 15, 20, 25, 15][currentStage];
-            stageData.totalEnemies = numSmallEnemies + (currentStage === 5 ? 1 : 0);
-            for(let i=0; i<numSmallEnemies; i++) enemies.push(new Enemy(false));
-            if(currentStage === 5) enemies.push(new Enemy(true));
+
+            let numSmall = [0, 12, 20, 40, 60, 80][currentStage];
+            stageData.totalSmallToSpawn = numSmall;
+            stageData.totalEnemies = numSmall + (currentStage === 5 ? 1 : 0);
+            
+            let framesToSpawn = STAGE_SPAWN_TIMES[currentStage - 1] * 60;
+            stageData.spawnInterval = Math.max(1, Math.floor(framesToSpawn / numSmall));
+
             weaponCountDisplay.innerText = "武器数: " + getWeaponCount();
-            updateProgress();
+            updateProgressBar();
+        }
+
+        function updateProgressBar() {
+            const progress = (stageData.killedEnemies / stageData.totalEnemies) * 100;
+            expBar.style.width = progress + "%";
         }
 
         function dropWeapon(stage) {
             const targetWeapon = WEAPONS[stage - 1];
             if(!targetWeapon) return;
-            const rx = Math.random() * (canvas.width - 200) + 100;
-            const ry = Math.random() * (canvas.height - 200) + 100;
-            bubbles.push({ x: rx, y: ry, content: targetWeapon, type: 'weapon', t: 0 });
+            bubbles.push({ x: Math.random() * (canvas.width - 200) + 100, y: Math.random() * (canvas.height - 200) + 100, content: targetWeapon, type: 'weapon', t: 0 });
         }
 
         function takeDamage() {
             player.hp--; player.invul = 65;
             screenShake = 18;
             if(player.hp <= 0) endGame(false);
-        }
-
-        function updateProgress() {
-            if (stageData.totalEnemies === 0) return;
-            const progressPercentage = ((stageData.totalEnemies - enemies.length) / stageData.totalEnemies) * 100;
-            expBar.style.width = progressPercentage + "%";
         }
 
         function nextStage() {
@@ -305,9 +292,33 @@
                 });
                 requestAnimationFrame(loop); return;
             }
+
             if (hitStopFrames > 0 && !pickupDisplay.active) { hitStopFrames--; requestAnimationFrame(loop); return; }
             
-            if(!pickupDisplay.active) frameCount++;
+            if(!pickupDisplay.active) {
+                frameCount++;
+                if(!trans.active) {
+                    stageData.stageFrame++;
+                    // Spawn Small Enemies
+                    if (stageData.spawnedCount < stageData.totalSmallToSpawn) {
+                        if (stageData.stageFrame % stageData.spawnInterval === 0) {
+                            enemies.push(new Enemy(false));
+                            stageData.spawnedCount++;
+                        }
+                    }
+                    // Spawn Boss (Last Stage Only, after transition)
+                    if (currentStage === 5 && !stageData.bossSpawned) {
+                        enemies.push(new Enemy(true));
+                        stageData.bossSpawned = true;
+                    }
+                }
+
+                // CHECK WIN CONDITION: All spawned and all dead
+                if (!trans.active && stageData.spawnedCount >= stageData.totalSmallToSpawn && enemies.length === 0) {
+                    if (currentStage === 5 && stageData.bossSpawned) endGame(true);
+                    else if (currentStage < 5) nextStage();
+                }
+            }
             
             ctx.save();
             if (screenShake > 0 && !pickupDisplay.active) { ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); screenShake *= 0.9; }
@@ -321,7 +332,7 @@
             }
 
             const now = Date.now();
-            if(!pickupDisplay.active && now - lastHealTime > 15000 && player.hp < player.maxHp && bubbles.filter(b => b.type === 'heal').length === 0) {
+            if(!pickupDisplay.active && now - lastHealTime > 15000 && player.hp < player.maxHp) {
                 bubbles.push({ x: Math.random()*(canvas.width-200)+100, y: Math.random()*(canvas.height-200)+100, type: 'heal', t: 0 });
                 lastHealTime = now;
             }
@@ -329,20 +340,13 @@
             bubbles.forEach((b, i) => {
                 if(!pickupDisplay.active) b.t += 0.03; 
                 const bobbing = Math.sin(b.t) * 5;
-
                 if (b.type === 'weapon') {
                     ctx.save();
-                    const auraGrad = ctx.createRadialGradient(b.x, b.y + bobbing, 0, b.x, b.y + bobbing, 70);
-                    auraGrad.addColorStop(0, "rgba(255, 215, 0, 0.7)");
-                    auraGrad.addColorStop(1, "rgba(255, 215, 0, 0)");
-                    ctx.fillStyle = auraGrad;
-                    ctx.beginPath();
-                    ctx.arc(b.x, b.y + bobbing, 70, 0, Math.PI * 2);
-                    ctx.fill();
+                    const grad = ctx.createRadialGradient(b.x, b.y + bobbing, 0, b.x, b.y + bobbing, 70);
+                    grad.addColorStop(0, "rgba(255, 215, 0, 0.7)"); grad.addColorStop(1, "rgba(255, 215, 0, 0)");
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(b.x, b.y + bobbing, 70, 0, Math.PI * 2); ctx.fill();
                     ctx.restore();
-
-                    const gImg = gatchaImages[b.content.gatchaIdx];
-                    if (gImg && gImg.complete) ctx.drawImage(gImg, b.x - 45, b.y - 67.5 + bobbing, 90, 135);
+                    if (gatchaBubbleImg.complete) ctx.drawImage(gatchaBubbleImg, b.x - 45, b.y - 67.5 + bobbing, 90, 135);
                     const wImg = weaponImages[b.content.imgIdx];
                     if (wImg && wImg.complete) ctx.drawImage(wImg, b.x - 30, b.y - 30 + bobbing, 60, 60);
                 } else {
@@ -351,22 +355,20 @@
                     ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 2; ctx.stroke();
                     ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y + 12 + bobbing);
                 }
-
                 if(!pickupDisplay.active && Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
                     if(b.type === 'weapon') {
                         player.weapon = b.content;
                         pickupDisplay.active = true;
                         pickupDisplay.imgIdx = b.content.imgIdx;
-                        pickupDisplay.gatchaIdx = b.content.gatchaIdx; // Store Gacha Background
+                        pickupDisplay.gatchaIdx = b.content.gatchaIdx; 
                         pickupDisplay.timer = pickupDisplay.maxTimer;
                     }
-                    else player.hp = Math.min(player.hp + 1, player.maxHp); 
+                    else player.hp = Math.min(player.hp + 5, player.maxHp); 
                     bubbles.splice(i, 1); 
                 }
             });
 
             if(!pickupDisplay.active && player.invul > 0) player.invul--;
-            
             if(pW) {
                 if (!pickupDisplay.active && frameCount % 8 === 0) player.animFrame = (player.animFrame + 1) % 8;
                 const sx = (player.animFrame % SPRITE_COLS) * pW + INNER_PAD, sy = Math.floor(player.animFrame / SPRITE_COLS) * pH + INNER_PAD;
@@ -385,42 +387,31 @@
                 const a = player.angle + (i * Math.PI * 2 / currentWeaponCount);
                 const wx = player.x + Math.cos(a) * WEAPON_RADIUS; 
                 const wy = player.y + Math.sin(a) * WEAPON_RADIUS;
-                
                 if(!pickupDisplay.active) {
                     weaponTrails[i].unshift({x: wx, y: wy});
                     if (weaponTrails[i].length > TRAIL_MAX_LENGTH) weaponTrails[i].pop();
                 }
-
                 const trail = weaponTrails[i];
                 if (trail.length > 1) {
                     const offsets = [{ dist: -5, alpha: 0.2 }, { dist: 0, alpha: 0.4 }, { dist: 5, alpha: 0.2 }];
                     offsets.forEach(off => {
-                        ctx.save();
-                        ctx.translate(Math.cos(a)*off.dist, Math.sin(a)*off.dist);
+                        ctx.save(); ctx.translate(Math.cos(a)*off.dist, Math.sin(a)*off.dist);
                         for (let j = 0; j < trail.length - 1; j++) {
-                            const rawProgress = 1 - (j / trail.length);
-                            const trapezoidProgress = 0.35 + (Math.pow(rawProgress, 0.5) * 0.65);
-                            ctx.beginPath();
-                            ctx.moveTo(trail[j].x, trail[j].y); ctx.lineTo(trail[j+1].x, trail[j+1].y);
-                            ctx.lineWidth = WEAPON_SIZE * 0.56 * trapezoidProgress; 
-                            ctx.strokeStyle = `rgba(255, 215, 0, ${rawProgress * 0.45 * off.alpha})`;
-                            ctx.stroke();
-                            ctx.lineWidth = WEAPON_SIZE * 0.28 * trapezoidProgress;
-                            ctx.strokeStyle = `rgba(255, 255, 255, ${rawProgress * 0.75 * off.alpha})`;
-                            ctx.stroke();
+                            const raw = 1 - (j / trail.length);
+                            const trapezoid = 0.35 + (Math.pow(raw, 0.5) * 0.65);
+                            ctx.beginPath(); ctx.moveTo(trail[j].x, trail[j].y); ctx.lineTo(trail[j+1].x, trail[j+1].y);
+                            ctx.lineWidth = WEAPON_SIZE * 0.56 * trapezoid; ctx.strokeStyle = `rgba(255, 215, 0, ${raw * 0.45 * off.alpha})`; ctx.stroke();
                         }
                         ctx.restore();
                     });
                 }
-                ctx.save();
-                ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2); 
+                ctx.save(); ctx.translate(wx, wy); ctx.rotate(a + Math.PI/2); 
                 if (wImg && wImg.complete) ctx.drawImage(wImg, -WEAPON_SIZE/2, -WEAPON_SIZE/2, WEAPON_SIZE, WEAPON_SIZE);
                 ctx.restore();
             }
 
             ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(player.x - 30, player.y + 55, 60, 8);
             ctx.fillStyle = "#00ff00"; ctx.fillRect(player.x - 30, player.y + 55, 60 * (player.hp/player.maxHp), 8);
-            
             enemies.forEach(e => { e.update(); e.draw(); });
             
             if(trans.active) {
@@ -444,58 +435,35 @@
                 if(e.life <= 0) effects.splice(i, 1);
             });
 
-            // --- GACHA WEAPON REVEAL & GAME FREEZE ---
             if (pickupDisplay.active) {
                 pickupDisplay.timer--;
-                
-                ctx.fillStyle = "rgba(0,0,0,0.75)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                ctx.fillStyle = "rgba(0,0,0,0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 let opacity = Math.min(1, pickupDisplay.timer / 40);
                 let scale = 1.0 + Math.sin(pickupDisplay.timer * 0.05) * 0.08; 
                 let size = 450 * scale; 
-
-                ctx.save();
-                ctx.globalAlpha = opacity;
-                
-                // Giant Glow behind everything
+                ctx.save(); ctx.globalAlpha = opacity;
                 const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, size);
-                grad.addColorStop(0, "rgba(255, 215, 0, 0.6)");
-                grad.addColorStop(1, "rgba(255, 215, 0, 0)");
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // 1. Draw Big Gacha Background
+                grad.addColorStop(0, "rgba(255, 215, 0, 0.6)"); grad.addColorStop(1, "rgba(255, 215, 0, 0)");
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 const bgImg = gatchaImages[pickupDisplay.gatchaIdx];
                 if (bgImg && bgImg.complete) {
-                    const bgW = size * 0.9;
-                    const bgH = bgW * 1.5;
+                    const bgW = size * 0.9; const bgH = bgW * 1.5;
                     ctx.drawImage(bgImg, canvas.width/2 - bgW/2, canvas.height/2 - bgH/2, bgW, bgH);
                 }
-
-                // 2. Draw Big Weapon Image
                 const pImg = weaponImages[pickupDisplay.imgIdx];
-                if (pImg && pImg.complete) {
-                    ctx.drawImage(pImg, canvas.width/2 - size/2, canvas.height/2 - size/2, size, size);
-                }
-
-                // 3. Achievement Text
+                if (pImg && pImg.complete) ctx.drawImage(pImg, canvas.width/2 - size/2, canvas.height/2 - size/2, size, size);
                 ctx.font = "bold 60px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#4a0000"; ctx.lineWidth = 8;
                 ctx.strokeText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + (size * 0.8));
                 ctx.fillText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + (size * 0.8));
                 ctx.restore();
-
                 if (pickupDisplay.timer <= 0) pickupDisplay.active = false;
             }
-
             ctx.restore();
             requestAnimationFrame(loop);
         }
 
         function endGame(win) {
             gameActive = false;
-            resMainText.innerText = "";
-            winImgContainer.innerHTML = "";
             if(win) {
                 resultScreen.style.backgroundImage = "url('last_bg.png')";
                 winImgContainer.innerHTML = '<img src="win_title.png" alt="天下統一">';
@@ -504,8 +472,6 @@
                 resultScreen.style.backgroundImage = "url('lost.png')";
                 resMainText.innerText = "無念"; 
                 resMainText.style.color = "#8e0000";
-                resMainText.style.background = "none";
-                resMainText.style.webkitBackgroundClip = "initial";
             }
             resultScreen.style.display = 'flex';
         }
@@ -513,8 +479,7 @@
         const handleInput = (ex, ey) => { 
             if(gameActive && !pickupDisplay.active){ 
                 player.dir = ex > player.x ? 1 : -1; 
-                player.x = ex; 
-                player.y = ey; 
+                player.x = ex; player.y = ey; 
             } 
         };
         window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
