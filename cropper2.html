@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Asset Cropper</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+    <style>
+        :root { --bg: #1e1e24; --panel: #2b2b36; --text: #e0e0e0; --accent: #007bff; --accent-hover: #0056b3; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--panel); padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .controls { display: flex; gap: 15px; align-items: center; }
+        input[type="number"] { width: 80px; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #111; color: #fff; text-align: center; }
+        input[type="file"] { display: none; }
+        
+        .btn { padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        .btn-upload { background: #28a745; }
+        .btn-upload:hover { background: #218838; }
+
+        .workspace { display: flex; gap: 20px; flex: 1; overflow: hidden; }
+        
+        .cropper-container-wrapper { flex: 2; background: var(--panel); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .img-container { width: 100%; max-height: 60vh; background: #111; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .img-container img { max-width: 100%; max-height: 100%; display: block; }
+
+        .results-panel { flex: 1; background: var(--panel); border-radius: 8px; padding: 20px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .results-panel h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        
+        .result-item { display: flex; flex-direction: column; background: #111; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; }
+        .result-item img { max-width: 100%; height: auto; margin-bottom: 10px; border-radius: 4px; }
+        .result-item a { text-decoration: none; background: #444; color: #fff; padding: 8px; border-radius: 4px; font-size: 14px; transition: 0.2s; }
+        .result-item a:hover { background: #666; }
+
+        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h2>Batch Asset Cropper</h2>
+            <span style="font-size: 14px; color: #aaa;">Crop multiple images to the exact same size.</span>
+        </div>
+        <div class="controls">
+            <div>
+                <label>Target W: </label>
+                <input type="number" id="targetWidth" value="512">
+            </div>
+            <div>
+                <label>Target H: </label>
+                <input type="number" id="targetHeight" value="512">
+            </div>
+            <button class="btn" onclick="updateCropperRatio()">Update Ratio</button>
+            <span style="width: 20px;"></span>
+            <label class="btn btn-upload">
+                Select Images
+                <input type="file" id="fileInput" multiple accept="image/*">
+            </label>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="cropper-container-wrapper">
+            <div class="img-container">
+                <img id="image" src="" alt="Select images to begin">
+            </div>
+            <br>
+            <button class="btn" id="cropNextBtn" onclick="cropAndNext()" disabled style="width: 200px; font-size: 18px;">Crop & Next ➔</button>
+            <div id="status">Queue: 0 images</div>
+        </div>
+
+        <div class="results-panel">
+            <h3>Ready for Export</h3>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script>
+        const imageElement = document.getElementById('image');
+        const fileInput = document.getElementById('fileInput');
+        const targetWidthInput = document.getElementById('targetWidth');
+        const targetHeightInput = document.getElementById('targetHeight');
+        const cropNextBtn = document.getElementById('cropNextBtn');
+        const statusText = document.getElementById('status');
+        const resultsList = document.getElementById('resultsList');
+
+        let cropper = null;
+        let imageQueue = [];
+        let currentFileIndex = 0;
+
+        // Handle File Uploads
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // Append to queue, don't overwrite if they select more
+            files.forEach(file => {
+                imageQueue.push(file);
+            });
+
+            // If cropper isn't active, start processing the first new file
+            if (!cropper) {
+                loadImage(currentFileIndex);
+            } else {
+                updateStatus();
+            }
+        });
+
+        // Update the aspect ratio if user changes W/H inputs
+        function updateCropperRatio() {
+            if (cropper) {
+                const w = parseInt(targetWidthInput.value);
+                const h = parseInt(targetHeightInput.value);
+                cropper.setAspectRatio(w / h);
+            }
+        }
+
+        // Load image into the UI
+        function loadImage(index) {
+            if (index >= imageQueue.length) {
+                // Queue finished
+                if (cropper) { cropper.destroy(); cropper = null; }
+                imageElement.src = "";
+                cropNextBtn.disabled = true;
+                statusText.innerText = "Queue finished! All images cropped.";
+                return;
+            }
+
+            const file = imageQueue[index];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                imageElement.src = e.target.result;
+
+                if (cropper) {
+                    cropper.replace(e.target.result);
+                } else {
+                    const w = parseInt(targetWidthInput.value);
+                    const h = parseInt(targetHeightInput.value);
+                    
+                    cropper = new Cropper(imageElement, {
+                        aspectRatio: w / h,
+                        viewMode: 1, // Restrict crop box to not exceed canvas
+                        autoCropArea: 1,
+                        background: false
+                    });
+                }
+                cropNextBtn.disabled = false;
+                updateStatus();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Output exactly sized image and move to next
+        function cropAndNext() {
+            if (!cropper) return;
+
+            const w = parseInt(targetWidthInput.value);
+            const h = parseInt(targetHeightInput.value);
+            const originalFile = imageQueue[currentFileIndex];
+
+            // Get exact dimensions mapped to target Width/Height
+            const canvas = cropper.getCroppedCanvas({
+                width: w,
+                height: h,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            if (canvas) {
+                // Create result thumbnail & download link
+                const dataUrl = canvas.toDataURL(originalFile.type); // Keeps PNG transparency if it was a PNG
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result-item';
+                
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                // Prepend target size to filename
+                link.download = `cropped_${w}x${h}_${originalFile.name}`;
+                link.innerText = `Download (${w}x${h})`;
+
+                resultDiv.appendChild(img);
+                resultDiv.appendChild(link);
+                resultsList.prepend(resultDiv); // Add newest to top
+            }
+
+            // Move to next image
+            currentFileIndex++;
+            loadImage(currentFileIndex);
+        }
+
+        function updateStatus() {
+            const remaining = imageQueue.length - currentFileIndex;
+            statusText.innerText = `Editing image ${currentFileIndex + 1} of ${imageQueue.length}. (${remaining - 1} remaining in queue)`;
+        }
+    </script>
+</body>
+</html>
