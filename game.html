@@ -112,7 +112,23 @@
         const STAGE_NAMES = ["第一幕", "第二幕", "第三幕", "第四幕", "終幕：呂布との死闘"];
         const STAGE_SPAWN_TIMES = [10, 10, 20, 30, 30]; 
         
-        let player = { x: 0, y: 0, hp: 12, maxHp: 12, weapon: WEAPONS[0], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
+        // --- Player Object Modified for Slower Movement ---
+        let player = { 
+            x: 0, 
+            y: 0, 
+            targetX: 0, 
+            targetY: 0, 
+            speed: 3, // Lower this number to make the player move even slower
+            hp: 12, 
+            maxHp: 12, 
+            weapon: WEAPONS[0], 
+            angle: 0, 
+            invul: 0, 
+            size: 90, 
+            animFrame: 0, 
+            dir: 1 
+        };
+
         let enemies = [], bubbles = [], effects = [], confetti = [];
         let gameActive = false, frameCount = 0, lastHealTime = Date.now();
         let hitStopFrames = 0, screenShake = 0;
@@ -227,7 +243,12 @@
 
         function startGame() {
             startScreen.style.display = 'none';
-            player.x = canvas.width/2; player.y = canvas.height/2;
+            // Initial positioning
+            player.x = canvas.width/2; 
+            player.y = canvas.height/2;
+            player.targetX = player.x;
+            player.targetY = player.y;
+            
             player.weapon = WEAPONS[0];
             gameActive = true;
             currentStage = 1;
@@ -297,23 +318,39 @@
             
             if(!pickupDisplay.active) {
                 frameCount++;
+
+                // --- Player Movement Logic (Gradual) ---
+                let dx = player.targetX - player.x;
+                let dy = player.targetY - player.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 1) {
+                    let moveX = (dx / distance) * player.speed;
+                    let moveY = (dy / distance) * player.speed;
+                    
+                    // Don't overshoot the target
+                    if (Math.abs(moveX) > Math.abs(dx)) moveX = dx;
+                    if (Math.abs(moveY) > Math.abs(dy)) moveY = dy;
+                    
+                    player.x += moveX;
+                    player.y += moveY;
+                    player.dir = dx > 0 ? 1 : -1;
+                }
+
                 if(!trans.active) {
                     stageData.stageFrame++;
-                    // Spawn Small Enemies
                     if (stageData.spawnedCount < stageData.totalSmallToSpawn) {
                         if (stageData.stageFrame % stageData.spawnInterval === 0) {
                             enemies.push(new Enemy(false));
                             stageData.spawnedCount++;
                         }
                     }
-                    // Spawn Boss (Last Stage Only, after transition)
                     if (currentStage === 5 && !stageData.bossSpawned) {
                         enemies.push(new Enemy(true));
                         stageData.bossSpawned = true;
                     }
                 }
 
-                // CHECK WIN CONDITION: All spawned and all dead
                 if (!trans.active && stageData.spawnedCount >= stageData.totalSmallToSpawn && enemies.length === 0) {
                     if (currentStage === 5 && stageData.bossSpawned) endGame(true);
                     else if (currentStage < 5) nextStage();
@@ -478,8 +515,9 @@
 
         const handleInput = (ex, ey) => { 
             if(gameActive && !pickupDisplay.active){ 
-                player.dir = ex > player.x ? 1 : -1; 
-                player.x = ex; player.y = ey; 
+                // Set the target instead of snapping instantly
+                player.targetX = ex; 
+                player.targetY = ey; 
             } 
         };
         window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
