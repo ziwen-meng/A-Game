@@ -126,7 +126,7 @@
         let trans = { active: false, chars: [], x: 0, targetX: 0, state: 'in', timer: 0 };
 
         // --- Gacha Pickup State: 180 frames = 3 seconds ---
-        let pickupDisplay = { active: false, imgIdx: 0, timer: 0, maxTimer: 180 };
+        let pickupDisplay = { active: false, imgIdx: 0, gatchaIdx: 0, timer: 0, maxTimer: 180 };
 
         const WEAPON_RADIUS = 100; 
         const WEAPON_SIZE = 80;
@@ -331,7 +331,6 @@
                 const bobbing = Math.sin(b.t) * 5;
 
                 if (b.type === 'weapon') {
-                    // --- DROP AURA ---
                     ctx.save();
                     const auraGrad = ctx.createRadialGradient(b.x, b.y + bobbing, 0, b.x, b.y + bobbing, 70);
                     auraGrad.addColorStop(0, "rgba(255, 215, 0, 0.7)");
@@ -358,6 +357,7 @@
                         player.weapon = b.content;
                         pickupDisplay.active = true;
                         pickupDisplay.imgIdx = b.content.imgIdx;
+                        pickupDisplay.gatchaIdx = b.content.gatchaIdx; // Store Gacha Background
                         pickupDisplay.timer = pickupDisplay.maxTimer;
                     }
                     else player.hp = Math.min(player.hp + 1, player.maxHp); 
@@ -448,8 +448,7 @@
             if (pickupDisplay.active) {
                 pickupDisplay.timer--;
                 
-                // Dim background
-                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillStyle = "rgba(0,0,0,0.75)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 let opacity = Math.min(1, pickupDisplay.timer / 40);
@@ -459,20 +458,31 @@
                 ctx.save();
                 ctx.globalAlpha = opacity;
                 
-                // Giant Glow
-                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, size/1.2);
+                // Giant Glow behind everything
+                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, size);
                 grad.addColorStop(0, "rgba(255, 215, 0, 0.6)");
-                grad.addColorStop(0.5, "rgba(255, 100, 0, 0.3)");
                 grad.addColorStop(1, "rgba(255, 215, 0, 0)");
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                const pImg = weaponImages[pickupDisplay.imgIdx];
-                if (pImg && pImg.complete) ctx.drawImage(pImg, canvas.width/2 - size/2, canvas.height/2 - size/2, size, size);
+                // 1. Draw Big Gacha Background
+                const bgImg = gatchaImages[pickupDisplay.gatchaIdx];
+                if (bgImg && bgImg.complete) {
+                    const bgW = size * 0.9;
+                    const bgH = bgW * 1.5;
+                    ctx.drawImage(bgImg, canvas.width/2 - bgW/2, canvas.height/2 - bgH/2, bgW, bgH);
+                }
 
+                // 2. Draw Big Weapon Image
+                const pImg = weaponImages[pickupDisplay.imgIdx];
+                if (pImg && pImg.complete) {
+                    ctx.drawImage(pImg, canvas.width/2 - size/2, canvas.height/2 - size/2, size, size);
+                }
+
+                // 3. Achievement Text
                 ctx.font = "bold 60px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#4a0000"; ctx.lineWidth = 8;
-                ctx.strokeText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + size/2 + 60);
-                ctx.fillText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + size/2 + 60);
+                ctx.strokeText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + (size * 0.8));
+                ctx.fillText("新兵器獲得 !!", canvas.width/2, canvas.height/2 + (size * 0.8));
                 ctx.restore();
 
                 if (pickupDisplay.timer <= 0) pickupDisplay.active = false;
