@@ -112,13 +112,12 @@
         const STAGE_NAMES = ["第一幕", "第二幕", "第三幕", "第四幕", "終幕：呂布との死闘"];
         const STAGE_SPAWN_TIMES = [10, 10, 20, 30, 30]; 
         
-        // --- Player Object Modified for Slower Movement ---
         let player = { 
             x: 0, 
             y: 0, 
             targetX: 0, 
             targetY: 0, 
-            speed: 3, // Lower this number to make the player move even slower
+            speed: 3, 
             hp: 12, 
             maxHp: 12, 
             weapon: WEAPONS[0], 
@@ -155,6 +154,24 @@
             const audio = new Audio('blade_whoosh.wav');
             audio.volume = 0.2; 
             audio.play().catch(e => {}); 
+        }
+
+        // --- Gatcha Sound Logic ---
+        function playGatchaSound(weaponId) {
+            let soundFile = '';
+            if (weaponId === 'weapon2' || weaponId === 'weapon3') {
+                soundFile = 'gatcha23.wav';
+            } else if (weaponId === 'weapon4') {
+                soundFile = 'gatcha4.wav';
+            } else if (weaponId === 'weapon5') {
+                soundFile = 'gatcha5.wav';
+            }
+
+            if (soundFile) {
+                const audio = new Audio(soundFile);
+                audio.volume = 0.4;
+                audio.play().catch(e => {});
+            }
         }
 
         class Enemy {
@@ -243,7 +260,6 @@
 
         function startGame() {
             startScreen.style.display = 'none';
-            // Initial positioning
             player.x = canvas.width/2; 
             player.y = canvas.height/2;
             player.targetX = player.x;
@@ -319,7 +335,6 @@
             if(!pickupDisplay.active) {
                 frameCount++;
 
-                // --- Player Movement Logic (Gradual) ---
                 let dx = player.targetX - player.x;
                 let dy = player.targetY - player.y;
                 let distance = Math.sqrt(dx * dx + dy * dy);
@@ -327,11 +342,8 @@
                 if (distance > 1) {
                     let moveX = (dx / distance) * player.speed;
                     let moveY = (dy / distance) * player.speed;
-                    
-                    // Don't overshoot the target
                     if (Math.abs(moveX) > Math.abs(dx)) moveX = dx;
                     if (Math.abs(moveY) > Math.abs(dy)) moveY = dy;
-                    
                     player.x += moveX;
                     player.y += moveY;
                     player.dir = dx > 0 ? 1 : -1;
@@ -392,9 +404,14 @@
                     ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 2; ctx.stroke();
                     ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y + 12 + bobbing);
                 }
+                
                 if(!pickupDisplay.active && Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
                     if(b.type === 'weapon') {
                         player.weapon = b.content;
+                        
+                        // --- PLAY GATCHA SOUND ---
+                        playGatchaSound(b.content.id);
+
                         pickupDisplay.active = true;
                         pickupDisplay.imgIdx = b.content.imgIdx;
                         pickupDisplay.gatchaIdx = b.content.gatchaIdx; 
@@ -515,7 +532,6 @@
 
         const handleInput = (ex, ey) => { 
             if(gameActive && !pickupDisplay.active){ 
-                // Set the target instead of snapping instantly
                 player.targetX = ex; 
                 player.targetY = ey; 
             } 
