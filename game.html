@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>三国ドライブ</title>
+    <title>三国ドライブ - 鳳凰三連撃</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #1a0000; font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif; user-select: none; touch-action: none; }
         canvas { display: block; }
@@ -14,28 +14,18 @@
         #exp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #fff700, #d4af37); transition: width 0.3s; }
 
         #stage-display { position: absolute; top: 35px; left: 5%; font-size: 18px; color: #ffd700; text-shadow: 2px 2px #000; letter-spacing: 2px; font-weight: bold; }
-        
+        #weapon-count-display { position: absolute; top: 35px; right: 5%; font-size: 18px; color: #fff; text-shadow: 2px 2px #000; font-weight: bold; }
+
         #start-screen, #result-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: #ffd700; text-align: center; }
         
         #start-screen { background: radial-gradient(circle, #3d0000 0%, #000000 100%); }
-        
-        /* New styling for Result Screen to handle BG images */
-        #result-screen { 
-            background-size: cover; 
-            background-position: center;
-        }
+        #result-screen { background-size: cover; background-position: center; }
 
         .title-text { font-size: 70px; margin-bottom: 15px; background: linear-gradient(to bottom, #fff700, #d4af37, #8a6d3b); -webkit-background-clip: text; color: transparent; filter: drop-shadow(0 0 10px rgba(212,175,55,0.5)); font-weight: 900; }
         
-        /* Container for the victory image */
-        #win-img-container img {
-            max-width: 80%;
-            height: auto;
-            margin-bottom: 30px;
-            filter: drop-shadow(0 0 20px rgba(212,175,55,0.8));
-        }
+        #win-img-container img { max-width: 80%; height: auto; margin-bottom: 30px; filter: drop-shadow(0 0 20px rgba(212,175,55,0.8)); }
 
-        .btn { padding: 18px 60px; background: #600000; color: #ffd700; border: 2px solid #d4af37; font-size: 24px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-family: serif; z-index: 101; }
+        .btn { padding: 18px 60px; background: #600000; color: #ffd700; border: 2px solid #d4af37; font-size: 24px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-family: serif; z-index: 101; pointer-events: auto; }
         .btn:hover { background: #d4af37; color: #3d0000; }
     </style>
 </head>
@@ -43,13 +33,14 @@
 
     <div id="start-screen">
         <h1 class="title-text">三国ドライブ</h1>
-        <p style="color: #d4af37; font-size: 18px;">三国戦場を駆け抜け、<br>武器を拾いて生き残れ。</p>
+        <p style="color: #d4af37; font-size: 18px;">敵軍を殲滅し、新たな武器を拾いて生き残れ。</p>
         <button class="btn" onclick="startGame()">合戦開始</button>
     </div>
 
     <div id="ui-layer">
         <div id="exp-container"><div id="exp-bar"></div></div>
         <div id="stage-display">第一幕</div>
+        <div id="weapon-count-display">武器数: 3</div>
     </div>
 
     <div id="result-screen" style="display:none;">
@@ -67,6 +58,7 @@
         const ctx = canvas.getContext('2d');
         const expBar = document.getElementById('exp-bar');
         const stageDisplay = document.getElementById('stage-display');
+        const weaponCountDisplay = document.getElementById('weapon-count-display');
         const startScreen = document.getElementById('start-screen');
         const resultScreen = document.getElementById('result-screen');
         const resMainText = document.getElementById('res-main-text');
@@ -79,14 +71,22 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- リソース読み込み ---
+        // --- Resources ---
         const playerImg = new Image(); playerImg.src = 'player.png';
         const enemySprite = new Image(); enemySprite.src = 'enemy.png';
+        
         const bgImages = [];
         for(let i=1; i<=5; i++) {
             const img = new Image();
             img.src = `background${i}.png`;
             bgImages.push(img);
+        }
+
+        const weaponImages = [];
+        for(let i=1; i<=5; i++) {
+            const img = new Image();
+            img.src = `weapon${i}.png`;
+            weaponImages.push(img);
         }
 
         const SPRITE_COLS = 3, SPRITE_ROWS = 3, INNER_PAD = 10;
@@ -95,33 +95,77 @@
         enemySprite.onload = () => { eW = enemySprite.width / SPRITE_COLS; eH = enemySprite.height / SPRITE_ROWS; };
 
         const WEAPONS = [
-            { id: 'banana', emoji: "🪭", power: 120, count: 6, color: "#ffd700" },
-            { id: 'spoon', emoji: "🗡️", power: 75, count: 5, color: "#ffffff" },
-            { id: 'brush', emoji: "🧧", power: 45, count: 8, color: "#ff5252" },
-            { id: 'onion', emoji: "🥢", power: 30, count: 4, color: "#aaffaa" }
+            { id: 'weapon1', imgIdx: 0, power: 30 },
+            { id: 'weapon2', imgIdx: 1, power: 50 },
+            { id: 'weapon3', imgIdx: 2, power: 75 },
+            { id: 'weapon4', imgIdx: 3, power: 100 },
+            { id: 'weapon5', imgIdx: 4, power: 150 }
         ];
 
         let currentStage = 1;
         const STAGE_NAMES = ["第一幕", "第二幕", "第三幕", "第四幕", "終幕：呂布との死闘"];
-        let player = { x: 0, y: 0, hp: 6, maxHp: 6, exp: 0, weapon: WEAPONS[3], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
+        
+        let player = { x: 0, y: 0, hp: 6, maxHp: 6, weapon: WEAPONS[0], angle: 0, invul: 0, size: 90, animFrame: 0, dir: 1 };
         let enemies = [], bubbles = [], effects = [], confetti = [];
-        let gameActive = false, frameCount = 0, lastDropTime = Date.now(), lastHealTime = Date.now();
+        let gameActive = false, frameCount = 0, lastHealTime = Date.now();
         let hitStopFrames = 0, screenShake = 0;
         let hitTriggers = new Map();
+        let enemyIdCounter = 0;
 
+        let stageData = { totalEnemies: 0, droppedWeapon: false };
         let trans = { active: false, chars: [], x: 0, targetX: 0, state: 'in', timer: 0 };
 
+        const WEAPON_RADIUS = 100; 
+        const WEAPON_SIZE = 80;
+
+        let weaponTrails = Array(6).fill().map(() => []); 
+        const TRAIL_MAX_LENGTH = 16; 
+
+        function getWeaponCount() {
+            if (currentStage === 1) return 3;
+            if (currentStage === 2) return 4;
+            if (currentStage === 3) return 5;
+            return 6;
+        }
+
+        /**
+         * 敵ヒット時のSE再生ロジック
+         * 250ms間隔で3回 blade_whoosh.wav を再生する
+         */
+        function playHitSound() {
+            let count = 0;
+            const interval = 250; 
+            const maxRetries = 3; 
+
+            const playOneShot = () => {
+                if (count < maxRetries) {
+                    const audio = new Audio('blade_whoosh.wav');
+                    audio.volume = 0.5; 
+                    audio.play().catch(e => console.log("Audio play blocked")); 
+                    
+                    count++;
+                    if (count < maxRetries) {
+                        setTimeout(playOneShot, interval);
+                    }
+                }
+            };
+
+            playOneShot();
+        }
+
         class Enemy {
-            constructor(isBoss = false, id) {
-                this.id = id; this.isBoss = isBoss; this.animFrame = Math.floor(Math.random() * 8);
-                this.spawn(true);
+            constructor(isBoss = false) {
+                this.id = enemyIdCounter++; 
+                this.isBoss = isBoss; 
+                this.animFrame = Math.floor(Math.random() * 8);
+                this.spawn();
             }
-            spawn(far = true) {
+            spawn() {
                 const angle = Math.random() * Math.PI * 2;
-                const d = far ? 750 : (500 + Math.random() * 200);
+                const d = 600 + Math.random() * 300;
                 this.x = player.x + Math.cos(angle) * d;
                 this.y = player.y + Math.sin(angle) * d;
-                this.maxHp = this.isBoss ? 2000 : 35 + (currentStage * 20);
+                this.maxHp = this.isBoss ? 2500 : 35 + (currentStage * 25);
                 this.hp = this.maxHp;
                 this.size = this.isBoss ? 250 : 85;
                 this.flash = 0;
@@ -131,7 +175,7 @@
                 if(!gameActive) return;
                 const dx = player.x - this.x, dy = player.y - this.y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                const speed = this.isBoss ? 1.0 : 1.4 + (currentStage * 0.18);
+                const speed = this.isBoss ? 1.0 : 1.2 + (currentStage * 0.2);
                 this.x += (dx/dist) * speed;
                 this.y += (dy/dist) * speed;
                 this.dir = dx > 0 ? 1 : -1;
@@ -139,14 +183,21 @@
                 if(dist < this.size*0.35 && player.invul <= 0) takeDamage();
 
                 const activeT = hitTriggers.get(this.id);
-                for(let i=0; i<player.weapon.count; i++) {
-                    const wa = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                    const wx = player.x + Math.cos(wa) * 125, wy = player.y + Math.sin(wa) * 125;
-                    if(Math.sqrt((this.x-wx)**2 + (this.y-wy)**2) < this.size*0.4 + 25) {
+                const currentWeaponCount = getWeaponCount();
+
+                for(let i=0; i < currentWeaponCount; i++) {
+                    const wa = player.angle + (i * Math.PI * 2 / currentWeaponCount);
+                    const wx = player.x + Math.cos(wa) * WEAPON_RADIUS; 
+                    const wy = player.y + Math.sin(wa) * WEAPON_RADIUS;
+                    
+                    if(Math.sqrt((this.x-wx)**2 + (this.y-wy)**2) < this.size*0.4 + 40) {
                         if(!activeT.has(i)) {
                             this.hp -= player.weapon.power;
                             this.flash = 5;
                             effects.push({ x: this.x, y: this.y, text: player.weapon.power, color: "#ffd700", life: 1.0 });
+                            
+                            playHitSound(); // Added Audio Logic
+
                             activeT.add(i);
                             if(this.isBoss) { hitStopFrames = 5; screenShake = 15; } else { hitStopFrames = 2; }
                             if(this.hp <= 0) this.die();
@@ -168,17 +219,49 @@
                 ctx.fillStyle = this.isBoss ? "#ffeb3b" : "#d4af37"; ctx.fillRect(this.x - 30, this.y - this.size/2 - 12, 60 * (this.hp/this.maxHp), 5);
             }
             die() {
-                if(this.isBoss) endGame(true);
-                else { player.exp += 15; this.spawn(false); updateExp(); }
+                const idx = enemies.indexOf(this);
+                if (idx > -1) enemies.splice(idx, 1);
+                hitTriggers.delete(this.id);
+                updateProgress();
+                if (currentStage > 1 && !stageData.droppedWeapon) {
+                    if (enemies.length <= stageData.totalEnemies / 2) {
+                        dropWeapon(currentStage, this.x, this.y);
+                        stageData.droppedWeapon = true;
+                    }
+                }
+                if (enemies.length === 0) {
+                    if (currentStage === 5) endGame(true);
+                    else nextStage();
+                }
             }
         }
 
         function startGame() {
             startScreen.style.display = 'none';
             player.x = canvas.width/2; player.y = canvas.height/2;
+            player.weapon = WEAPONS[0];
             gameActive = true;
-            for(let i=0; i<12; i++) enemies.push(new Enemy(false, i));
+            currentStage = 1;
+            startStageWave();
             loop();
+        }
+
+        function startStageWave() {
+            enemies = [];
+            stageData.droppedWeapon = false;
+            weaponTrails = Array(6).fill().map(() => []);
+            let numSmallEnemies = [0, 10, 15, 20, 25, 15][currentStage];
+            stageData.totalEnemies = numSmallEnemies + (currentStage === 5 ? 1 : 0);
+            for(let i=0; i<numSmallEnemies; i++) enemies.push(new Enemy(false));
+            if(currentStage === 5) enemies.push(new Enemy(true));
+            weaponCountDisplay.innerText = "武器数: " + getWeaponCount();
+            updateProgress();
+        }
+
+        function dropWeapon(stage, ex, ey) {
+            const targetWeapon = WEAPONS[stage - 1];
+            if(!targetWeapon) return;
+            bubbles.push({ x: ex, y: ey, content: targetWeapon, type: 'weapon', t: 0 });
         }
 
         function takeDamage() {
@@ -187,21 +270,20 @@
             if(player.hp <= 0) endGame(false);
         }
 
-        function updateExp() {
-            expBar.style.width = player.exp + "%";
-            if(player.exp >= 100) { player.exp = 0; nextStage(); }
+        function updateProgress() {
+            if (stageData.totalEnemies === 0) return;
+            const progressPercentage = ((stageData.totalEnemies - enemies.length) / stageData.totalEnemies) * 100;
+            expBar.style.width = progressPercentage + "%";
         }
 
         function nextStage() {
-            if(currentStage < 5) {
-                currentStage++;
-                stageDisplay.innerText = STAGE_NAMES[currentStage-1];
-                trans.chars = `【 ${STAGE_NAMES[currentStage-1]} 】 いざ参らん`.split('');
-                trans.x = canvas.width + 100;
-                trans.targetX = canvas.width / 2 - (trans.chars.length * 30);
-                trans.state = 'in'; trans.timer = 110; trans.active = true;
-                if(currentStage === 5) enemies = [new Enemy(true, 0)];
-            }
+            currentStage++;
+            stageDisplay.innerText = STAGE_NAMES[currentStage-1];
+            trans.chars = `【 ${STAGE_NAMES[currentStage-1]} 】 いざ参らん`.split('');
+            trans.x = canvas.width + 100;
+            trans.targetX = canvas.width / 2 - (trans.chars.length * 30);
+            trans.state = 'in'; trans.timer = 110; trans.active = true;
+            setTimeout(() => { if (gameActive) startStageWave(); }, 1000);
         }
 
         function loop() {
@@ -215,9 +297,11 @@
                 requestAnimationFrame(loop); return;
             }
             if (hitStopFrames > 0) { hitStopFrames--; requestAnimationFrame(loop); return; }
+            
             frameCount++;
             ctx.save();
             if (screenShake > 0) { ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); screenShake *= 0.9; }
+            
             const curBG = bgImages[currentStage-1];
             if(curBG && curBG.complete) {
                 ctx.drawImage(curBG, 0, 0, canvas.width, canvas.height);
@@ -225,24 +309,33 @@
             } else {
                 ctx.fillStyle = "#1a0000"; ctx.fillRect(0,0,canvas.width,canvas.height);
             }
+
             const now = Date.now();
-            if(now - lastDropTime > 8500 && bubbles.filter(b => b.type === 'weapon').length === 0) {
-                bubbles.push({ x: Math.random()*(canvas.width-100)+50, y: Math.random()*(canvas.height-100)+50, content: WEAPONS[Math.floor(Math.random()*(WEAPONS.length-1))], type: 'weapon', t: 0 });
-                lastDropTime = now;
-            }
-            if(now - lastHealTime > 11000 && player.hp < player.maxHp && bubbles.filter(b => b.type === 'heal').length === 0) {
-                bubbles.push({ x: Math.random()*(canvas.width-100)+50, y: Math.random()*(canvas.height-100)+50, content: {emoji: "❤️"}, type: 'heal', t: 0 });
+            if(now - lastHealTime > 15000 && player.hp < player.maxHp && bubbles.filter(b => b.type === 'heal').length === 0) {
+                bubbles.push({ x: Math.random()*(canvas.width-200)+100, y: Math.random()*(canvas.height-200)+100, type: 'heal', t: 0 });
                 lastHealTime = now;
             }
+
             bubbles.forEach((b, i) => {
                 b.t += 0.03; 
                 ctx.beginPath(); ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
                 ctx.fillStyle = b.type === 'heal' ? "rgba(255,100,100,0.4)" : "rgba(212,175,55,0.4)"; ctx.fill(); 
-                ctx.strokeStyle = "#d4af37"; ctx.lineWidth = 2; ctx.stroke();
-                ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText(b.content.emoji, b.x, b.y+12);
-                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { if(b.type === 'weapon') player.weapon = b.content; else player.hp = Math.min(player.hp + 1, player.maxHp); bubbles.splice(i, 1); }
+                ctx.strokeStyle = b.type === 'heal' ? "#ff0000" : "#d4af37"; ctx.lineWidth = 2; ctx.stroke();
+                if (b.type === 'weapon') {
+                    const wImg = weaponImages[b.content.imgIdx];
+                    if (wImg && wImg.complete) ctx.drawImage(wImg, b.x - 30, b.y - 30, 60, 60);
+                } else {
+                    ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y+12);
+                }
+                if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
+                    if(b.type === 'weapon') player.weapon = b.content; 
+                    else player.hp = Math.min(player.hp + 1, player.maxHp); 
+                    bubbles.splice(i, 1); 
+                }
             });
+
             if(player.invul > 0) player.invul--;
+            
             if(pW) {
                 if (frameCount % 8 === 0) player.animFrame = (player.animFrame + 1) % 8;
                 const sx = (player.animFrame % SPRITE_COLS) * pW + INNER_PAD, sy = Math.floor(player.animFrame / SPRITE_COLS) * pH + INNER_PAD;
@@ -252,22 +345,81 @@
                 if(player.invul % 4 < 2) ctx.drawImage(playerImg, sx, sy, pW-20, pH-20, -player.size/2, -player.size/2, player.size, player.size);
                 ctx.restore();
             }
-            player.angle += 0.055;
-            for(let i=0; i<player.weapon.count; i++) {
-                const a = player.angle + (i * Math.PI * 2 / player.weapon.count);
-                const wx = player.x + Math.cos(a)*130; const wy = player.y + Math.sin(a)*130;
+            
+            player.angle += 0.035;
+            const currentWeaponCount = getWeaponCount();
+            const wImg = weaponImages[player.weapon.imgIdx];
+
+            for(let i=0; i<currentWeaponCount; i++) {
+                const a = player.angle + (i * Math.PI * 2 / currentWeaponCount);
+                const wx = player.x + Math.cos(a) * WEAPON_RADIUS; 
+                const wy = player.y + Math.sin(a) * WEAPON_RADIUS;
+                
+                weaponTrails[i].unshift({x: wx, y: wy});
+                if (weaponTrails[i].length > TRAIL_MAX_LENGTH) weaponTrails[i].pop();
+
+                const trail = weaponTrails[i];
+                if (trail.length > 1) {
+                    ctx.lineCap = 'butt'; 
+                    ctx.lineJoin = 'miter'; 
+
+                    const offsets = [
+                        { dist: -5, alpha: 0.2 }, 
+                        { dist: 0,   alpha: 0.4 }, 
+                        { dist: 5,  alpha: 0.2 }  
+                    ];
+
+                    offsets.forEach(off => {
+                        ctx.save();
+                        const sx = Math.cos(a) * off.dist;
+                        const sy = Math.sin(a) * off.dist;
+                        ctx.translate(sx, sy);
+
+                        for (let j = 0; j < trail.length - 1; j++) {
+                            const rawProgress = 1 - (j / trail.length);
+                            // --- TRAPEZOID LOGIC ---
+                            // We use Math.pow (0.5) to keep the blade thick longer, and floor it at 0.35 so it's a flat end
+                            const trapezoidProgress = 0.35 + (Math.pow(rawProgress, 0.5) * 0.65);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(trail[j].x, trail[j].y);
+                            ctx.lineTo(trail[j+1].x, trail[j+1].y);
+                            
+                            // Outer glow
+                            ctx.lineWidth = WEAPON_SIZE * 0.56 * trapezoidProgress; 
+                            ctx.strokeStyle = `rgba(255, 215, 0, ${rawProgress * 0.45 * off.alpha})`;
+                            ctx.stroke();
+                            
+                            // Inner core
+                            ctx.lineWidth = WEAPON_SIZE * 0.28 * trapezoidProgress;
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${rawProgress * 0.75 * off.alpha})`;
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+                    });
+                }
+
                 ctx.save();
-                ctx.font = "bold 50px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                ctx.strokeStyle = "rgba(0,0,0,0.9)"; ctx.lineWidth = 6; ctx.strokeText(player.weapon.emoji, wx, wy);
-                ctx.fillText(player.weapon.emoji, wx, wy); ctx.restore();
+                ctx.translate(wx, wy);
+                ctx.rotate(a + Math.PI/2); 
+                if (wImg && wImg.complete) {
+                    ctx.drawImage(wImg, -WEAPON_SIZE/2, -WEAPON_SIZE/2, WEAPON_SIZE, WEAPON_SIZE);
+                } else {
+                    ctx.fillStyle = "#fff"; ctx.fillRect(-20, -20, 40, 40);
+                }
+                ctx.restore();
             }
+
             ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(player.x - 30, player.y + 55, 60, 8);
             ctx.fillStyle = "#00ff00"; ctx.fillRect(player.x - 30, player.y + 55, 60 * (player.hp/player.maxHp), 8);
+            
             enemies.forEach(e => { e.update(); e.draw(); });
+            
             if(trans.active) {
                 if(trans.state === 'in') { trans.x += (trans.targetX - trans.x) * 0.08; if(Math.abs(trans.x - trans.targetX) < 1) trans.state = 'hold'; }
                 else if(trans.state === 'hold') { trans.timer--; if(trans.timer <= 0) trans.state = 'out'; }
                 else { trans.x -= 18; if(trans.x < -1200) trans.active = false; }
+                
                 ctx.font = "bold 55px serif"; ctx.textAlign = "left";
                 trans.chars.forEach((c, i) => {
                     const cx = trans.x + i * 58; const cy = canvas.height/2;
@@ -275,39 +427,33 @@
                     ctx.fillStyle = "#ffd700"; ctx.fillText(c, cx, cy);
                 });
             }
+            
             effects.forEach((e, i) => {
                 ctx.globalAlpha = e.life; ctx.fillStyle = e.color || "#ffd700";
                 ctx.font = "bold 32px serif"; ctx.fillText(e.text, e.x, e.y);
                 e.y -= 1.2; e.life -= 0.02; if(e.life <= 0) effects.splice(i, 1);
             });
+
             ctx.restore();
             requestAnimationFrame(loop);
         }
 
         function endGame(win) {
             gameActive = false;
-            
-            // Clear previous states
             resMainText.innerText = "";
             winImgContainer.innerHTML = "";
 
             if(win) {
-                // Set Win Background
                 resultScreen.style.backgroundImage = "url('last_bg.png')";
-                // Add Win Title Image
                 winImgContainer.innerHTML = '<img src="win_title.png" alt="天下統一">';
-                
-                // Confetti for victory
                 for(let i=0; i<80; i++) confetti.push({ x: Math.random()*canvas.width, y: -20, size: Math.random()*10+5, color: `hsl(${Math.random()*360}, 100%, 70%)`, vy: Math.random()*5+2, vx: (Math.random()-0.5)*3, angle: Math.random()*360, vAngle: Math.random()*10-5 });
             } else {
-                // Set Default Lose Background
                 resultScreen.style.background = "radial-gradient(circle, #3d0000 0%, #000000 100%)";
                 resMainText.innerText = "無念"; 
                 resMainText.style.color = "#8e0000";
                 resMainText.style.background = "none";
                 resMainText.style.webkitBackgroundClip = "initial";
             }
-            
             resultScreen.style.display = 'flex';
         }
 

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Image Cropper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin-top: 0; }
+        input[type="file"] {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 2px dashed #ccc;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .results {
+            margin-top: 2rem;
+            display: grid;
+            gap: 1rem;
+        }
+        .result-item {
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        img {
+            max-height: 100px;
+            border: 1px solid #ccc;
+        }
+        .download-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .download-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Center-Half Image Cropper</h1>
+    <p>Select your <b>weapon1.png</b> through <b>weapon5.png</b> files. The tool will automatically cut 25% off the left and 25% off the right.</p>
+    
+    <input type="file" id="fileInput" accept="image/png, image/jpeg" multiple>
+    
+    <div class="results" id="resultsContainer"></div>
+</div>
+
+<script>
+    document.getElementById('fileInput').addEventListener('change', function(event) {
+        const files = event.target.files;
+        const resultsContainer = document.getElementById('resultsContainer');
+        resultsContainer.innerHTML = ''; // Clear previous results
+
+        if (files.length === 0) return;
+
+        // Loop through all selected files
+        Array.from(files).forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Create a canvas to perform the cropping
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    const originalWidth = img.width;
+                    const originalHeight = img.height;
+
+                    // Calculate crop dimensions (keep middle 50%)
+                    const cropLeft = Math.floor(originalWidth / 4);
+                    const cropTop = 0;
+                    const cropWidth = Math.floor(originalWidth / 2);
+                    const cropHeight = originalHeight;
+
+                    // Set canvas size to the cropped dimensions
+                    canvas.width = cropWidth;
+                    canvas.height = cropHeight;
+
+                    // Draw the cropped portion onto the canvas
+                    // drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight)
+                    ctx.drawImage(img, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+                    // Convert canvas back to a PNG data URL
+                    const croppedDataUrl = canvas.toDataURL('image/png');
+
+                    // Create UI elements to show the result and provide a download link
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+
+                    const previewImg = document.createElement('img');
+                    previewImg.src = croppedDataUrl;
+                    previewImg.title = 'Cropped Preview';
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = croppedDataUrl;
+                    downloadLink.download = 'cropped_' + file.name;
+                    downloadLink.className = 'download-btn';
+                    downloadLink.textContent = 'Download ' + 'cropped_' + file.name;
+
+                    resultItem.appendChild(previewImg);
+                    resultItem.appendChild(downloadLink);
+                    resultsContainer.appendChild(resultItem);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+</script>
+
+</body>
+</html>
