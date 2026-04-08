@@ -156,7 +156,6 @@
             audio.play().catch(e => {}); 
         }
 
-        // --- Gatcha Sound Logic ---
         function playGatchaSound(weaponId) {
             let soundFile = '';
             if (weaponId === 'weapon2' || weaponId === 'weapon3') {
@@ -408,10 +407,7 @@
                 if(!pickupDisplay.active && Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
                     if(b.type === 'weapon') {
                         player.weapon = b.content;
-                        
-                        // --- PLAY GATCHA SOUND ---
                         playGatchaSound(b.content.id);
-
                         pickupDisplay.active = true;
                         pickupDisplay.imgIdx = b.content.imgIdx;
                         pickupDisplay.gatchaIdx = b.content.gatchaIdx; 
@@ -519,10 +515,18 @@
         function endGame(win) {
             gameActive = false;
             if(win) {
+                const winAudio = new Audio('win.wav');
+                winAudio.volume = 0.5;
+                winAudio.play().catch(e => {});
+
                 resultScreen.style.backgroundImage = "url('last_bg.png')";
                 winImgContainer.innerHTML = '<img src="win_title.png" alt="天下統一">';
                 for(let i=0; i<80; i++) confetti.push({ x: Math.random()*canvas.width, y: -20, size: Math.random()*10+5, color: `hsl(${Math.random()*360}, 100%, 70%)`, vy: Math.random()*5+2, vx: (Math.random()-0.5)*3, angle: Math.random()*360, vAngle: Math.random()*10-5 });
             } else {
+                const lostAudio = new Audio('lost.wav');
+                lostAudio.volume = 0.5;
+                lostAudio.play().catch(e => {});
+
                 resultScreen.style.backgroundImage = "url('lost.png')";
                 resMainText.innerText = "無念"; 
                 resMainText.style.color = "#8e0000";
