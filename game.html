@@ -90,6 +90,14 @@
             weaponImages.push(img);
         }
 
+        // --- Load Gacha Backgrounds ---
+        const gatchaImages = [];
+        for(let i=1; i<=3; i++) {
+            const img = new Image();
+            img.src = `gatcha${i}.png`;
+            gatchaImages.push(img);
+        }
+
         const SPRITE_COLS = 3, SPRITE_ROWS = 3, INNER_PAD = 10;
         let pW = 0, pH = 0, eW = 0, eH = 0, bW = 0, bH = 0;
         
@@ -98,11 +106,11 @@
         bossSprite.onload = () => { bW = bossSprite.width / SPRITE_COLS; bH = bossSprite.height / SPRITE_ROWS; };
 
         const WEAPONS = [
-            { id: 'weapon1', imgIdx: 0, power: 30 },
-            { id: 'weapon2', imgIdx: 1, power: 50 },
-            { id: 'weapon3', imgIdx: 2, power: 75 },
-            { id: 'weapon4', imgIdx: 3, power: 100 },
-            { id: 'weapon5', imgIdx: 4, power: 150 }
+            { id: 'weapon1', imgIdx: 0, power: 30,  gatchaIdx: 0 }, // Uses gatcha1.png
+            { id: 'weapon2', imgIdx: 1, power: 50,  gatchaIdx: 0 }, // Uses gatcha1.png
+            { id: 'weapon3', imgIdx: 2, power: 75,  gatchaIdx: 1 }, // Uses gatcha2.png
+            { id: 'weapon4', imgIdx: 3, power: 100, gatchaIdx: 1 }, // Uses gatcha2.png
+            { id: 'weapon5', imgIdx: 4, power: 150, gatchaIdx: 2 }  // Uses gatcha3.png
         ];
 
         let currentStage = 1;
@@ -329,15 +337,29 @@
 
             bubbles.forEach((b, i) => {
                 b.t += 0.03; 
-                ctx.beginPath(); ctx.arc(b.x, b.y, 45+Math.sin(b.t)*5, 0, Math.PI*2);
-                ctx.fillStyle = b.type === 'heal' ? "rgba(255,100,100,0.4)" : "rgba(212,175,55,0.4)"; ctx.fill(); 
-                ctx.strokeStyle = b.type === 'heal' ? "#ff0000" : "#d4af37"; ctx.lineWidth = 2; ctx.stroke();
+                const bobbing = Math.sin(b.t) * 5;
+
                 if (b.type === 'weapon') {
+                    // Draw gacha background behind weapon
+                    const gImg = gatchaImages[b.content.gatchaIdx];
+                    if (gImg && gImg.complete) {
+                        ctx.drawImage(gImg, b.x - 45, b.y - 67.5 + bobbing, 90, 135);
+                    }
+                    
+                    // Draw weapon on top
                     const wImg = weaponImages[b.content.imgIdx];
-                    if (wImg && wImg.complete) ctx.drawImage(wImg, b.x - 30, b.y - 30, 60, 60);
+                    if (wImg && wImg.complete) {
+                        ctx.drawImage(wImg, b.x - 30, b.y - 30 + bobbing, 60, 60);
+                    }
                 } else {
-                    ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y+12);
+                    // Draw original bubble for health items
+                    ctx.beginPath(); ctx.arc(b.x, b.y, 45 + bobbing, 0, Math.PI*2);
+                    ctx.fillStyle = "rgba(255,100,100,0.4)"; ctx.fill(); 
+                    ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y + 12 + bobbing);
                 }
+
+                // Check collision
                 if(Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
                     if(b.type === 'weapon') player.weapon = b.content; 
                     else player.hp = Math.min(player.hp + 1, player.maxHp); 
