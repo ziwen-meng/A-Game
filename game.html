@@ -93,6 +93,11 @@
             gatchaImages.push(img);
         }
 
+        // BGM設定
+        const bossBgm = new Audio('boss_bgm.wav');
+        bossBgm.loop = true;
+        bossBgm.volume = 0.5;
+
         const SPRITE_COLS = 3, SPRITE_ROWS = 3, INNER_PAD = 10;
         let pW = 0, pH = 0, eW = 0, eH = 0, bW = 0, bH = 0;
         
@@ -185,7 +190,7 @@
                 const d = 600 + Math.random() * 300;
                 this.x = player.x + Math.cos(angle) * d;
                 this.y = player.y + Math.sin(angle) * d;
-                this.maxHp = this.isBoss ? 8000 : 40 + (currentStage * 30);
+                this.maxHp = this.isBoss ? 12000 : 40 + (currentStage * 30);
                 this.hp = this.maxHp;
                 this.size = this.isBoss ? 260 : 85;
                 this.flash = 0;
@@ -279,6 +284,11 @@
             stageData.stageFrame = 0;
             stageData.bossSpawned = false;
             weaponTrails = Array(6).fill().map(() => []);
+
+            // ラストステージ（第5幕）ならBGMをループ再生開始
+            if (currentStage === 5) {
+                bossBgm.play().catch(e => console.log("BGM Play Error:", e));
+            }
 
             let numSmall = [0, 12, 20, 40, 60, 80][currentStage];
             stageData.totalSmallToSpawn = numSmall;
@@ -514,6 +524,11 @@
 
         function endGame(win) {
             gameActive = false;
+
+            // ゲーム終了時にボスBGMを停止してリセット
+            bossBgm.pause();
+            bossBgm.currentTime = 0;
+
             if(win) {
                 const winAudio = new Audio('win.wav');
                 winAudio.volume = 0.5;
