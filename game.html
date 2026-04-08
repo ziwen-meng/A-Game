@@ -32,8 +32,12 @@
 <body>
 
     <div id="start-screen">
-        <h1 class="title-text">三国ドライブ</h1>
-        <p style="color: #d4af37; font-size: 18px;">敵軍を殲滅せよ。全滅させねば次へは進めぬ。</p>
+        <img src="app.png" alt="三国ドライブ Icon" style="width: 200px; height: 200px; border-radius: 25px; margin-bottom: 5px; box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);">
+        
+        <h1 class="title-text" style="margin-top: 0; margin-bottom: 5px;">三国ドライブ</h1>
+        
+        <p style="color: #d4af37; font-size: 18px; margin-top: 0; margin-bottom: 20px;">敵軍を殲滅せよ。全滅させねば次へは進めぬ。</p>
+        
         <button class="btn" onclick="startGame()">合戦開始</button>
     </div>
 
@@ -48,7 +52,7 @@
             <div id="res-main-text" class="title-text"></div>
             <div id="win-img-container"></div>
         </div>
-        <button class="btn" onclick="location.reload()">再戦を望む</button>
+        <button class="btn" onclick="window.location.href='https://apps.apple.com/jp/app/%E4%B8%89%E5%9B%BD%E3%83%89%E3%83%A9%E3%82%A4%E3%83%96/id1363049113'">再戦を望む</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -411,7 +415,13 @@
                     ctx.beginPath(); ctx.arc(b.x, b.y, 45 + bobbing, 0, Math.PI*2);
                     ctx.fillStyle = "rgba(255,100,100,0.4)"; ctx.fill(); 
                     ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 2; ctx.stroke();
-                    ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y + 12 + bobbing);
+                    ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("❤️", b.x, b.y + 12 + bobbing);                                    // ▼ここから「回復」テキストの追加分▼
+                    ctx.font = "bold 20px serif"; // フォントとサイズ
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = "#000000"; // 背景に埋もれないよう黒縁取り
+                    ctx.strokeText("回復", b.x, b.y + 65 + bobbing); // 縁取りを描画
+                    ctx.fillStyle = "#ffaaaa"; // 文字の色（薄い赤）
+                    ctx.fillText("回復", b.x, b.y + 65 + bobbing); // 文字を描画
                 }
                 
                 if(!pickupDisplay.active && Math.sqrt((player.x-b.x)**2 + (player.y-b.y)**2) < 65) { 
@@ -543,7 +553,6 @@
                 lostAudio.play().catch(e => {});
 
                 resultScreen.style.backgroundImage = "url('lost.png')";
-                resMainText.innerText = "無念"; 
                 resMainText.style.color = "#8e0000";
             }
             resultScreen.style.display = 'flex';
