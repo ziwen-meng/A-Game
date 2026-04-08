@@ -14,7 +14,6 @@
         #exp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #fff700, #d4af37); transition: width 0.3s; }
 
         #stage-display { position: absolute; top: 35px; left: 5%; font-size: 18px; color: #ffd700; text-shadow: 2px 2px #000; letter-spacing: 2px; font-weight: bold; }
-        /* 武器数を非表示に変更 */
         #weapon-count-display { display: none; position: absolute; top: 35px; right: 5%; font-size: 18px; color: #fff; text-shadow: 2px 2px #000; font-weight: bold; }
 
         #start-screen, #result-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: #ffd700; text-align: center; }
@@ -34,11 +33,8 @@
 
     <div id="start-screen">
         <img src="app.png" alt="三国ドライブ Icon" style="width: 200px; height: 200px; border-radius: 25px; margin-bottom: 5px; box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);">
-        
         <h1 class="title-text" style="margin-top: 0; margin-bottom: 5px;">三国ドライブ</h1>
-        
         <p style="color: #d4af37; font-size: 18px; margin-top: 0; margin-bottom: 20px;">敵軍を殲滅せよ。全滅させねば次へは進めぬ。</p>
-        
         <button class="btn" onclick="startGame()">合戦開始</button>
     </div>
 
@@ -98,7 +94,11 @@
             gatchaImages.push(img);
         }
 
-        // BGM設定
+        // --- BGM設定 ---
+        const mainBgm = new Audio('bgm.wav');
+        mainBgm.loop = true;
+        mainBgm.volume = 0.5;
+
         const bossBgm = new Audio('boss_bgm.wav');
         bossBgm.loop = true;
         bossBgm.volume = 0.5;
@@ -277,6 +277,10 @@
             player.weapon = WEAPONS[0];
             gameActive = true;
             currentStage = 1;
+            
+            // Start main BGM
+            mainBgm.play().catch(e => console.log("BGM Play Error:", e));
+            
             startStageWave();
             loop();
         }
@@ -290,8 +294,10 @@
             stageData.bossSpawned = false;
             weaponTrails = Array(6).fill().map(() => []);
 
+            // Handle BGM switching for Boss
             if (currentStage === 5) {
-                bossBgm.play().catch(e => console.log("BGM Play Error:", e));
+                mainBgm.pause();
+                bossBgm.play().catch(e => console.log("Boss BGM Play Error:", e));
             }
 
             let numSmall = [0, 12, 20, 40, 60, 80][currentStage];
@@ -540,7 +546,9 @@
         function endGame(win) {
             gameActive = false;
 
-            // ゲーム終了時にボスBGMを停止してリセット
+            // Stop all BGM tracks
+            mainBgm.pause();
+            mainBgm.currentTime = 0;
             bossBgm.pause();
             bossBgm.currentTime = 0;
 
